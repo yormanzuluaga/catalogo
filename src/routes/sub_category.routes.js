@@ -14,7 +14,7 @@ const router = Router()
 router.get('/', subCategoryCtrl.getAllSubCategories)
 
 // Obtener subcategorías de una categoría específica
-router.get('/sub_category/:categoryId', [
+router.get('/:categoryId', [
     check('categoryId', 'No es un ID de MongoDB válido').isMongoId(),
     // check('categoryId').custom(helpers.categoryExistsId), // Agregar esta validación si existe
     middleware.validarCampos
@@ -33,9 +33,8 @@ router.post('/', [
     middlewareRoles.hasRole('ADMIN_ROLE'),
     check('name', 'El nombre es obligatorio').not().isEmpty(),
     check('description', 'La descripción es obligatoria').not().isEmpty(),
-    check('number', 'El número es obligatorio').isNumeric(),
     check('category', 'La categoría es obligatoria').isMongoId(),
-    // check('category').custom(helpers.categoryExistsId), // Agregar esta validación
+    check('category').custom(helpers.categoryExistsId), // Agregar esta validación
     middleware.validarCampos,
 ], subCategoryCtrl.createSubCategory)
 

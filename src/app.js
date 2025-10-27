@@ -17,6 +17,7 @@ const role = require('./routes/role.routes');
 const uploads = require('./routes/uploads.routes');
 const wallet = require('./routes/wallet.routes');
 const orden = require('./routes/orden.routes');
+const payment = require('./routes/payment.routes');
 
 app.use(cors())
 
@@ -40,6 +41,7 @@ app.use('/api/user', user)
 app.use('/api/role', role)
 app.use('/api/uploads', uploads)
 app.use('/api/wallet', wallet)
-app.use('/api/orders', orden)
+app.use('/api/orden', orden)
+app.use('/api/payments', payment)
 
 module.exports = app;

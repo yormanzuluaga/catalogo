@@ -25,7 +25,11 @@ router.post('/', [
     check('totalPrice', 'El precio total es requerido').isFloat({ min: 0.01 }),
     check('paymentMethod', 'El método de pago es requerido').not().isEmpty(),
     check('phone', 'El teléfono es requerido').not().isEmpty(),
-    check('name', 'El nombre es requerido').not().isEmpty(),
+    check('name', 'El nombre del cliente es requerido').not().isEmpty(),
+    // Validaciones de dirección
+    check('customerAddress.street', 'La dirección es requerida').not().isEmpty(),
+    check('customerAddress.city', 'La ciudad es requerida').not().isEmpty(),
+    check('customerAddress.department', 'El departamento es requerido').not().isEmpty(),
     middleware.validarCampos
 ], ordenCtrl.createOrder);
 

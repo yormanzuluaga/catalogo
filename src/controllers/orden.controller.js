@@ -12,7 +12,7 @@ const ordenCtrl = {};
 ordenCtrl.createOrder = async (req = request, res = response) => {
   try {
     const { items, ...orderData } = req.body;
-    const userId = req.usuario.id;
+    const userId = req.user._id || req.user.id;
 
     // Validar y enriquecer items con información del producto
     const enrichedItems = [];
@@ -85,7 +85,7 @@ ordenCtrl.createOrder = async (req = request, res = response) => {
  */
 ordenCtrl.getMyOrders = async (req = request, res = response) => {
   try {
-    const userId = req.usuario.id;
+    const userId = req.user._id || req.user.id;
     const { page = 1, limit = 10, status } = req.query;
 
     const filters = { user: userId, estado: true };
@@ -126,7 +126,7 @@ ordenCtrl.getMyOrders = async (req = request, res = response) => {
 ordenCtrl.getOrderById = async (req = request, res = response) => {
   try {
     const { id } = req.params;
-    const userId = req.usuario.id;
+    const userId = req.user._id || req.user.id;
 
     const order = await Orden.findOne({ _id: id, user: userId, estado: true })
       .populate('user', 'firstName lastName email')
@@ -220,7 +220,7 @@ ordenCtrl.getAllOrders = async (req = request, res = response) => {
 ordenCtrl.approveOrderCommissions = async (req = request, res = response) => {
   try {
     const { id } = req.params;
-    const adminId = req.usuario.id;
+    const adminId = req.user._id || req.user.id;
 
     const order = await Orden.findById(id);
     if (!order) {

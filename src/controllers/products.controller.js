@@ -347,11 +347,16 @@ productsCtrl.addProductImages = async (req = request, res = response) => {
         // Agregar imagen principal si se envió
         if (req.files.img) {
             try {
-                // Eliminar imagen principal anterior si existe
+                // Intentar eliminar imagen principal anterior si existe (sin fallar si no se puede)
                 if (product.img) {
-                    await s3Service.deleteFile(product.img);
+                    try {
+                        await s3Service.deleteFile(product.img);
+                    } catch (deleteError) {
+                        console.log('Advertencia: No se pudo eliminar imagen anterior:', deleteError.message);
+                        // Continúa sin fallar
+                    }
                 }
-                const imageUrl = await s3Service.uploadFile(req.files.img, 'products');
+                const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'products');
                 updateData.img = imageUrl;
             } catch (error) {
                 return res.status(400).json({
@@ -368,7 +373,7 @@ productsCtrl.addProductImages = async (req = request, res = response) => {
 
             try {
                 for (const image of images) {
-                    const imageUrl = await s3Service.uploadFile(image, 'products');
+                    const imageUrl = await s3Service.uploadFileFromExpressUpload(image, 'products');
                     imageUrls.push(imageUrl);
                 }
                 
@@ -570,5 +575,891 @@ productsCtrl.migrateProductToSubCategory = async (req = request, res = response)
         });
     }
 }
+
+// Crear producto con variantes
+productsCtrl.createProductWithVariants = async (req = request, res = response) => {
+    try {
+        const { estado, user, variants, ...body } = req.body;
+
+        // Validar que se proporcione category O subCategory, pero no ambos
+        if (!body.category && !body.subCategory) {
+            return res.status(400).json({
+                msg: 'Debe proporcionar una categoría o subcategoría'
+            });
+        }
+
+        if (body.category && body.subCategory) {
+            return res.status(400).json({
+                msg: 'No puede proporcionar categoría y subcategoría al mismo tiempo'
+            });
+        }
+
+        // Verificar si el producto ya existe
+        const ProductDB = await Product.findOne({name: body.name});
+        if (ProductDB) {
+            return res.status(400).json({
+                msg: `El producto ${ProductDB.name}, ya existe`
+            });
+        }
+
+        // Validar variantes si se proporcionan
+        if (variants && variants.length > 0) {
+            // Verificar SKUs únicos
+            const skus = variants.map(v => v.sku);
+            const uniqueSkus = [...new Set(skus)];
+            if (skus.length !== uniqueSkus.length) {
+                return res.status(400).json({
+                    msg: 'Los SKUs de las variantes deben ser únicos'
+                });
+            }
+
+            // Validar que cada variante tenga los campos requeridos
+            for (const variant of variants) {
+                if (!variant.sku) {
+                    return res.status(400).json({
+                        msg: 'Cada variante debe tener SKU'
+                    });
+                }
+                
+                // Validar estructura de precios
+                if (!variant.pricing || !variant.pricing.salePrice || !variant.pricing.costPrice) {
+                    return res.status(400).json({
+                        msg: 'Cada variante debe tener pricing.costPrice y pricing.salePrice'
+                    });
+                }
+            }
+        }
+
+        const data = {
+            ...body,
+            user: req.user._id,
+            productType: variants && variants.length > 0 ? 'variant' : 'simple',
+            variants: variants || []
+        };
+
+        // Manejar imagen principal si se envió
+        if (req.files && req.files.img) {
+            try {
+                const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'products');
+                data.img = imageUrl;
+            } catch (error) {
+                return res.status(400).json({
+                    msg: 'Error al subir la imagen principal',
+                    error: error.message
+                });
+            }
+        }
+
+        // Manejar imágenes adicionales generales
+        if (req.files && req.files.images) {
+            const images = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+            const imageUrls = [];
+
+            try {
+                for (const image of images) {
+                    const imageUrl = await s3Service.uploadFileFromExpressUpload(image, 'products');
+                    imageUrls.push(imageUrl);
+                }
+                data.images = imageUrls;
+            } catch (error) {
+                if (data.img) {
+                    try {
+                        await s3Service.deleteFile(data.img);
+                    } catch (deleteError) {
+                        console.error('Error limpiando imagen principal:', deleteError);
+                    }
+                }
+                return res.status(400).json({
+                    msg: 'Error al subir las imágenes adicionales',
+                    error: error.message
+                });
+            }
+        }
+
+        const product = new Product(data);
+        await product.save();
+
+        res.status(201).json({
+            msg: 'Producto con variantes creado exitosamente',
+            product
+        });
+
+    } catch (error) {
+        console.error('Error creando producto con variantes:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Obtener variantes de un producto
+productsCtrl.getProductVariants = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        if (product.productType !== 'variant') {
+            return res.status(400).json({
+                msg: 'Este producto no tiene variantes'
+            });
+        }
+
+        res.json({
+            productName: product.name,
+            variants: product.variants,
+            availableColors: product.getAvailableColors(),
+            availableSizes: product.getAvailableSizes(),
+            priceRange: {
+                min: product.getMinPrice(),
+                max: product.getMaxPrice()
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo variantes:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Agregar variante a un producto existente
+productsCtrl.addVariantToProduct = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+        const { sku, color, size, measurements, pricing, points, stock, barcode } = req.body;
+
+        if (!sku) {
+            return res.status(400).json({
+                msg: 'SKU es requerido para la variante'
+            });
+        }
+
+        if (!pricing || !pricing.costPrice || !pricing.salePrice) {
+            return res.status(400).json({
+                msg: 'Pricing con costPrice y salePrice son requeridos para la variante'
+            });
+        }
+
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        // Verificar que el SKU sea único
+        const existingVariant = product.variants.find(v => v.sku === sku);
+        if (existingVariant) {
+            return res.status(400).json({
+                msg: 'Ya existe una variante con este SKU'
+            });
+        }
+
+        const newVariant = {
+            sku,
+            color: color || {},
+            size: size || '',
+            measurements: measurements || {},
+            pricing: {
+                costPrice: pricing.costPrice,
+                salePrice: pricing.salePrice,
+                commission: pricing.commission || 0,
+                profit: {
+                    amount: 0, // Se calculará automáticamente
+                    percentage: 0 // Se calculará automáticamente
+                }
+            },
+            points: {
+                earnPoints: points?.earnPoints || 0,
+                redeemPoints: points?.redeemPoints || 0
+            },
+            stock: stock || 0,
+            barcode: barcode || '',
+            available: true,
+            images: []
+        };
+
+        // Manejar imágenes específicas de la variante
+        if (req.files && req.files.variantImages) {
+            const images = Array.isArray(req.files.variantImages) ? req.files.variantImages : [req.files.variantImages];
+            const imageUrls = [];
+
+            try {
+                for (const image of images) {
+                    const imageUrl = await s3Service.uploadFileFromExpressUpload(image, 'products/variants');
+                    imageUrls.push(imageUrl);
+                }
+                newVariant.images = imageUrls;
+            } catch (error) {
+                return res.status(400).json({
+                    msg: 'Error al subir las imágenes de la variante',
+                    error: error.message
+                });
+            }
+        }
+
+        // Cambiar el tipo de producto a variant si era simple
+        if (product.productType === 'simple') {
+            product.productType = 'variant';
+        }
+
+        product.variants.push(newVariant);
+        await product.save();
+
+        res.json({
+            msg: 'Variante agregada exitosamente',
+            variant: newVariant,
+            product
+        });
+
+    } catch (error) {
+        console.error('Error agregando variante:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Actualizar variante específica
+productsCtrl.updateVariant = async (req = request, res = response) => {
+    try {
+        const { productId, sku } = req.params;
+        const { color, size, measurements, pricing, points, stock, barcode, available } = req.body;
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        const variantIndex = product.variants.findIndex(v => v.sku === sku);
+        if (variantIndex === -1) {
+            return res.status(404).json({
+                msg: 'Variante no encontrada'
+            });
+        }
+
+        // Actualizar campos de la variante
+        if (color !== undefined) product.variants[variantIndex].color = color;
+        if (size !== undefined) product.variants[variantIndex].size = size;
+        if (measurements !== undefined) product.variants[variantIndex].measurements = measurements;
+        
+        // Actualizar pricing
+        if (pricing) {
+            if (pricing.costPrice !== undefined) product.variants[variantIndex].pricing.costPrice = pricing.costPrice;
+            if (pricing.salePrice !== undefined) product.variants[variantIndex].pricing.salePrice = pricing.salePrice;
+            if (pricing.commission !== undefined) product.variants[variantIndex].pricing.commission = pricing.commission;
+        }
+        
+        // Actualizar points
+        if (points) {
+            if (points.earnPoints !== undefined) product.variants[variantIndex].points.earnPoints = points.earnPoints;
+            if (points.redeemPoints !== undefined) product.variants[variantIndex].points.redeemPoints = points.redeemPoints;
+        }
+        
+        if (stock !== undefined) product.variants[variantIndex].stock = stock;
+        if (barcode !== undefined) product.variants[variantIndex].barcode = barcode;
+        if (available !== undefined) product.variants[variantIndex].available = available;
+
+        // Manejar actualización de imágenes de la variante
+        if (req.files && req.files.variantImages) {
+            const images = Array.isArray(req.files.variantImages) ? req.files.variantImages : [req.files.variantImages];
+            const imageUrls = [];
+
+            try {
+                // Eliminar imágenes anteriores
+                if (product.variants[variantIndex].images && product.variants[variantIndex].images.length > 0) {
+                    for (const oldImage of product.variants[variantIndex].images) {
+                        await s3Service.deleteFile(oldImage);
+                    }
+                }
+
+                // Subir nuevas imágenes
+                for (const image of images) {
+                    const imageUrl = await s3Service.uploadFileFromExpressUpload(image, 'products/variants');
+                    imageUrls.push(imageUrl);
+                }
+                product.variants[variantIndex].images = imageUrls;
+            } catch (error) {
+                return res.status(400).json({
+                    msg: 'Error al actualizar las imágenes de la variante',
+                    error: error.message
+                });
+            }
+        }
+
+        await product.save();
+
+        res.json({
+            msg: 'Variante actualizada exitosamente',
+            variant: product.variants[variantIndex],
+            product
+        });
+
+    } catch (error) {
+        console.error('Error actualizando variante:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Eliminar variante
+productsCtrl.deleteVariant = async (req = request, res = response) => {
+    try {
+        const { productId, sku } = req.params;
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        const variantIndex = product.variants.findIndex(v => v.sku === sku);
+        if (variantIndex === -1) {
+            return res.status(404).json({
+                msg: 'Variante no encontrada'
+            });
+        }
+
+        // Eliminar imágenes de la variante
+        const variant = product.variants[variantIndex];
+        if (variant.images && variant.images.length > 0) {
+            try {
+                for (const image of variant.images) {
+                    await s3Service.deleteFile(image);
+                }
+            } catch (error) {
+                console.error('Error eliminando imágenes de variante:', error);
+            }
+        }
+
+        // Eliminar la variante
+        product.variants.splice(variantIndex, 1);
+
+        // Si no quedan variantes, cambiar el tipo a simple
+        if (product.variants.length === 0) {
+            product.productType = 'simple';
+        }
+
+        await product.save();
+
+        res.json({
+            msg: 'Variante eliminada exitosamente',
+            product
+        });
+
+    } catch (error) {
+        console.error('Error eliminando variante:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Buscar productos por filtros de variantes
+productsCtrl.searchProductsByVariants = async (req = request, res = response) => {
+    try {
+        const { color, size, minPrice, maxPrice, category, subCategory, hasDiscount, minPoints, limit = 10, from = 0 } = req.query;
+
+        let query = { estado: true };
+        
+        // Filtros de categoría
+        if (category) query.category = category;
+        if (subCategory) query.subCategory = subCategory;
+
+        // Filtros de variantes
+        let variantFilters = {};
+        if (color) variantFilters['variants.color.name'] = new RegExp(color, 'i');
+        if (size) variantFilters['variants.size'] = size;
+        if (minPrice) variantFilters['variants.pricing.salePrice'] = { $gte: Number(minPrice) };
+        if (maxPrice) {
+            if (variantFilters['variants.pricing.salePrice']) {
+                variantFilters['variants.pricing.salePrice'].$lte = Number(maxPrice);
+            } else {
+                variantFilters['variants.pricing.salePrice'] = { $lte: Number(maxPrice) };
+            }
+        }
+        
+        // Filtro por puntos mínimos
+        if (minPoints) {
+            variantFilters['variants.points.earnPoints'] = { $gte: Number(minPoints) };
+        }
+
+        // Filtro por productos con descuento
+        if (hasDiscount === 'true') {
+            query.discount = { $exists: true, $ne: [] };
+        }
+
+        // Agregar filtros de variantes a la query principal
+        Object.assign(query, variantFilters);
+
+        const [totalProducts, products] = await Promise.all([
+            Product.countDocuments(query).lean(),
+            Product.find(query)
+                .populate('user', 'firstName')
+                .populate('category', 'name')
+                .populate('subCategory', 'name')
+                .skip(Number(from))
+                .limit(Number(limit))
+                .lean()
+        ]);
+
+        // Calcular información adicional para cada producto
+        const enrichedProducts = products.map(product => {
+            // Calcular rango de precios
+            let minProductPrice = 0, maxProductPrice = 0;
+            let totalStock = 0;
+            let maxEarnPoints = 0;
+            
+            if (product.productType === 'variant' && product.variants) {
+                const prices = product.variants.map(v => v.pricing?.salePrice || 0);
+                const points = product.variants.map(v => v.points?.earnPoints || 0);
+                minProductPrice = Math.min(...prices);
+                maxProductPrice = Math.max(...prices);
+                totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+                maxEarnPoints = Math.max(...points);
+            } else if (product.productType === 'simple') {
+                minProductPrice = maxProductPrice = product.simpleProduct?.pricing?.salePrice || 0;
+                totalStock = product.simpleProduct?.stock || 0;
+                maxEarnPoints = product.simpleProduct?.points?.earnPoints || 0;
+            }
+
+            return {
+                ...product,
+                priceRange: {
+                    min: minProductPrice,
+                    max: maxProductPrice
+                },
+                totalStock,
+                maxEarnPoints,
+                hasActiveDiscount: product.discount && product.discount.length > 0
+            };
+        });
+
+        res.json({
+            total: totalProducts,
+            products: enrichedProducts,
+            filters: {
+                color,
+                size,
+                priceRange: { min: minPrice, max: maxPrice },
+                category,
+                subCategory,
+                hasDiscount,
+                minPoints
+            }
+        });
+
+    } catch (error) {
+        console.error('Error buscando productos por variantes:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// ==================== ENDPOINTS ESPECÍFICOS PARA CATÁLOGO DE VENDEDORAS ====================
+
+// Obtener productos para vendedoras con información de comisiones y puntos
+productsCtrl.getProductsForSellers = async (req = request, res = response) => {
+    try {
+        const { limit = 20, from = 0, category, subCategory, hasDiscount, minCommission } = req.query;
+        const sellerId = req.user._id; // ID de la vendedora
+
+        let query = { estado: true, available: true };
+        
+        // Filtros opcionales
+        if (category) query.category = category;
+        if (subCategory) query.subCategory = subCategory;
+        if (hasDiscount === 'true') {
+            query.discount = { $exists: true, $ne: [] };
+        }
+
+        const [totalProducts, products] = await Promise.all([
+            Product.countDocuments(query).lean(),
+            Product.find(query)
+                .populate('category', 'name')
+                .populate('subCategory', 'name category')
+                .skip(Number(from))
+                .limit(Number(limit))
+                .lean()
+        ]);
+
+        // Enriquecer productos con información específica para vendedoras
+        const sellerProducts = products.map(product => {
+            let sellerInfo = {
+                priceRange: { min: 0, max: 0 },
+                commissionRange: { min: 0, max: 0 },
+                pointsRange: { min: 0, max: 0 },
+                totalStock: 0,
+                hasVariants: product.productType === 'variant',
+                variantCount: 0,
+                discountInfo: null
+            };
+
+            // Calcular información según el tipo de producto
+            if (product.productType === 'variant' && product.variants && product.variants.length > 0) {
+                const availableVariants = product.variants.filter(v => v.available);
+                
+                if (availableVariants.length > 0) {
+                    const prices = availableVariants.map(v => v.pricing?.salePrice || 0);
+                    const commissions = availableVariants.map(v => v.pricing?.commission || 0);
+                    const points = availableVariants.map(v => v.points?.earnPoints || 0);
+                    
+                    sellerInfo.priceRange = {
+                        min: Math.min(...prices),
+                        max: Math.max(...prices)
+                    };
+                    sellerInfo.commissionRange = {
+                        min: Math.min(...commissions),
+                        max: Math.max(...commissions)
+                    };
+                    sellerInfo.pointsRange = {
+                        min: Math.min(...points),
+                        max: Math.max(...points)
+                    };
+                    sellerInfo.totalStock = availableVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
+                    sellerInfo.variantCount = availableVariants.length;
+                }
+            } else if (product.productType === 'simple') {
+                const pricing = product.simpleProduct?.pricing || product.pricing;
+                const points = product.simpleProduct?.points || product.points;
+                
+                sellerInfo.priceRange = {
+                    min: pricing?.salePrice || 0,
+                    max: pricing?.salePrice || 0
+                };
+                sellerInfo.commissionRange = {
+                    min: pricing?.commission || 0,
+                    max: pricing?.commission || 0
+                };
+                sellerInfo.pointsRange = {
+                    min: points?.earnPoints || 0,
+                    max: points?.earnPoints || 0
+                };
+                sellerInfo.totalStock = product.simpleProduct?.stock || 0;
+            }
+
+            // Procesar información de descuentos
+            if (product.discount && product.discount.length > 0) {
+                const activeDiscounts = product.discount.filter(d => {
+                    const now = new Date();
+                    const start = d.startDate ? new Date(d.startDate) : new Date(0);
+                    const end = d.endDate ? new Date(d.endDate) : new Date('2099-12-31');
+                    return now >= start && now <= end;
+                });
+
+                if (activeDiscounts.length > 0) {
+                    sellerInfo.discountInfo = {
+                        hasActiveDiscount: true,
+                        discounts: activeDiscounts.map(d => ({
+                            type: d.type,
+                            value: d.value,
+                            minQuantity: d.minQuantity || 1
+                        }))
+                    };
+                }
+            }
+
+            // Filtrar por comisión mínima si se especifica
+            if (minCommission && sellerInfo.commissionRange.max < Number(minCommission)) {
+                return null;
+            }
+
+            return {
+                uid: product._id,
+                name: product.name,
+                brand: product.brand,
+                description: product.description,
+                img: product.img,
+                images: product.images,
+                category: product.category,
+                subCategory: product.subCategory,
+                deliveryTime: product.deliveryTime,
+                ...sellerInfo
+            };
+        }).filter(Boolean); // Eliminar productos null (filtrados por comisión)
+
+        res.json({
+            total: sellerProducts.length,
+            products: sellerProducts,
+            sellerId,
+            filters: {
+                category,
+                subCategory,
+                hasDiscount,
+                minCommission
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo productos para vendedoras:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Obtener detalles completos de un producto para vendedoras
+productsCtrl.getProductDetailsForSellers = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+        const sellerId = req.user._id;
+
+        const product = await Product.findOne({ _id: id, estado: true })
+            .populate('category', 'name')
+            .populate('subCategory', 'name category')
+            .lean();
+
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        // Preparar información detallada para vendedoras
+        const sellerProductInfo = {
+            uid: product._id,
+            name: product.name,
+            brand: product.brand,
+            model: product.model,
+            description: product.description,
+            img: product.img,
+            images: product.images,
+            category: product.category,
+            subCategory: product.subCategory,
+            deliveryTime: product.deliveryTime,
+            details: product.details,
+            warranty: product.warranty,
+            productType: product.productType,
+            
+            // Información de precios y comisiones
+            pricing: {},
+            variants: [],
+            discounts: product.discount || [],
+            
+            // Información calculada
+            totalStock: 0,
+            maxCommission: 0,
+            maxPoints: 0
+        };
+
+        // Procesar según el tipo de producto
+        if (product.productType === 'variant' && product.variants) {
+            // Filtrar solo variantes disponibles
+            const availableVariants = product.variants.filter(v => v.available);
+            
+            sellerProductInfo.variants = availableVariants.map(variant => ({
+                sku: variant.sku,
+                color: variant.color,
+                size: variant.size,
+                measurements: variant.measurements,
+                images: variant.images,
+                barcode: variant.barcode,
+                stock: variant.stock,
+                
+                // Información de precios para vendedoras
+                pricing: {
+                    costPrice: variant.pricing?.costPrice || 0,
+                    salePrice: variant.pricing?.salePrice || 0,
+                    profit: {
+                        amount: variant.pricing?.profit?.amount || 0,
+                        percentage: variant.pricing?.profit?.percentage || 0
+                    },
+                    commission: variant.pricing?.commission || 0
+                },
+                points: {
+                    earnPoints: variant.points?.earnPoints || 0,
+                    redeemPoints: variant.points?.redeemPoints || 0
+                }
+            }));
+
+            // Calcular totales
+            sellerProductInfo.totalStock = availableVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
+            sellerProductInfo.maxCommission = Math.max(...availableVariants.map(v => v.pricing?.commission || 0));
+            sellerProductInfo.maxPoints = Math.max(...availableVariants.map(v => v.points?.earnPoints || 0));
+            
+        } else if (product.productType === 'simple') {
+            const pricing = product.simpleProduct?.pricing || product.pricing;
+            const points = product.simpleProduct?.points || product.points;
+            
+            sellerProductInfo.pricing = {
+                costPrice: pricing?.costPrice || 0,
+                salePrice: pricing?.salePrice || 0,
+                profit: {
+                    amount: pricing?.profit?.amount || 0,
+                    percentage: pricing?.profit?.percentage || 0
+                },
+                commission: pricing?.commission || 0
+            };
+            
+            sellerProductInfo.points = {
+                earnPoints: points?.earnPoints || 0,
+                redeemPoints: points?.redeemPoints || 0
+            };
+            
+            sellerProductInfo.totalStock = product.simpleProduct?.stock || 0;
+            sellerProductInfo.maxCommission = pricing?.commission || 0;
+            sellerProductInfo.maxPoints = points?.earnPoints || 0;
+        }
+
+        res.json({
+            product: sellerProductInfo,
+            sellerId
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo detalles del producto para vendedoras:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Calcular comisión y puntos para una venta específica
+productsCtrl.calculateSaleCommission = async (req = request, res = response) => {
+    try {
+        const { productId, variantSku, quantity = 1 } = req.body;
+        const sellerId = req.user._id;
+
+        if (!productId || quantity <= 0) {
+            return res.status(400).json({
+                msg: 'ID de producto y cantidad válida son requeridos'
+            });
+        }
+
+        const product = await Product.findOne({ _id: productId, estado: true }).lean();
+
+        if (!product) {
+            return res.status(404).json({
+                msg: 'Producto no encontrado'
+            });
+        }
+
+        let saleInfo = {
+            productId,
+            variantSku: variantSku || null,
+            quantity: Number(quantity),
+            unitPrice: 0,
+            totalPrice: 0,
+            unitCommission: 0,
+            totalCommission: 0,
+            unitPoints: 0,
+            totalPoints: 0,
+            availableStock: 0,
+            discountApplied: null
+        };
+
+        // Determinar precios según el tipo de producto
+        if (product.productType === 'variant' && variantSku) {
+            const variant = product.variants.find(v => v.sku === variantSku && v.available);
+            
+            if (!variant) {
+                return res.status(404).json({
+                    msg: 'Variante no encontrada o no disponible'
+                });
+            }
+
+            saleInfo.unitPrice = variant.pricing?.salePrice || 0;
+            saleInfo.unitCommission = variant.pricing?.commission || 0;
+            saleInfo.unitPoints = variant.points?.earnPoints || 0;
+            saleInfo.availableStock = variant.stock || 0;
+            
+        } else if (product.productType === 'simple') {
+            const pricing = product.simpleProduct?.pricing || product.pricing;
+            const points = product.simpleProduct?.points || product.points;
+            
+            saleInfo.unitPrice = pricing?.salePrice || 0;
+            saleInfo.unitCommission = pricing?.commission || 0;
+            saleInfo.unitPoints = points?.earnPoints || 0;
+            saleInfo.availableStock = product.simpleProduct?.stock || 0;
+        }
+
+        // Verificar stock disponible
+        if (saleInfo.quantity > saleInfo.availableStock) {
+            return res.status(400).json({
+                msg: `Stock insuficiente. Disponible: ${saleInfo.availableStock}`
+            });
+        }
+
+        // Calcular totales
+        saleInfo.totalPrice = saleInfo.unitPrice * saleInfo.quantity;
+        saleInfo.totalCommission = saleInfo.unitCommission * saleInfo.quantity;
+        saleInfo.totalPoints = saleInfo.unitPoints * saleInfo.quantity;
+
+        // Aplicar descuentos si existen
+        if (product.discount && product.discount.length > 0) {
+            const applicableDiscounts = product.discount.filter(d => {
+                const now = new Date();
+                const start = d.startDate ? new Date(d.startDate) : new Date(0);
+                const end = d.endDate ? new Date(d.endDate) : new Date('2099-12-31');
+                const validTime = now >= start && now <= end;
+                const validQuantity = saleInfo.quantity >= (d.minQuantity || 1);
+                
+                return validTime && validQuantity;
+            });
+
+            if (applicableDiscounts.length > 0) {
+                // Aplicar el mejor descuento
+                let bestDiscount = null;
+                let maxDiscountAmount = 0;
+
+                applicableDiscounts.forEach(discount => {
+                    let discountAmount = 0;
+                    if (discount.type === 'percentage') {
+                        discountAmount = (saleInfo.totalPrice * discount.value) / 100;
+                    } else if (discount.type === 'fixed') {
+                        discountAmount = discount.value;
+                    }
+
+                    if (discountAmount > maxDiscountAmount) {
+                        maxDiscountAmount = discountAmount;
+                        bestDiscount = discount;
+                    }
+                });
+
+                if (bestDiscount) {
+                    saleInfo.discountApplied = {
+                        type: bestDiscount.type,
+                        value: bestDiscount.value,
+                        amount: maxDiscountAmount
+                    };
+                    saleInfo.totalPrice -= maxDiscountAmount;
+                }
+            }
+        }
+
+        res.json({
+            saleCalculation: saleInfo,
+            productName: product.name,
+            sellerId
+        });
+
+    } catch (error) {
+        console.error('Error calculando comisión de venta:', error);
+        res.status(500).json({
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
 
 module.exports = productsCtrl

@@ -83,7 +83,49 @@ const OrdenSchema = Schema(
       processedAt: { type: Date },
       shippedAt: { type: Date },
       deliveredAt: { type: Date }
-    }
+    },
+    
+    // Dirección del cliente
+    customerAddress: {
+      street: { type: String, required: true },
+      neighborhood: { type: String },
+      city: { type: String, required: true },
+      department: { type: String, required: true },
+      postalCode: { type: String },
+      country: { type: String, default: 'Colombia' },
+      additionalInfo: { type: String }, // Referencias adicionales
+      coordinates: {
+        lat: { type: Number },
+        lng: { type: Number }
+      }
+    },
+
+    // Información de pago con Wompi
+    payment: {
+      provider: { type: String, default: 'wompi' },
+      transaction_id: { type: String }, // ID de transacción en Wompi
+      payment_link_id: { type: String }, // ID del link de pago
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'declined', 'voided', 'error'],
+        default: 'pending'
+      },
+      payment_method: { type: String }, // CARD, NEQUI, PSE, etc.
+      amount_in_cents: { type: Number },
+      currency: { type: String, default: 'COP' },
+      reference: { type: String }, // Referencia única del pago
+      approval_code: { type: String },
+      receipt_url: { type: String },
+      payment_date: { type: Date },
+      payment_link_url: { type: String }, // URL de pago para el cliente
+      webhook_events: [
+        {
+          event_type: { type: String },
+          received_at: { type: Date, default: Date.now },
+          data: { type: Schema.Types.Mixed }
+        }
+      ]
+    },
   },
   { 
     timestamps: true,
@@ -154,4 +196,3 @@ OrdenSchema.methods.toJSON = function() {
 };
 
 module.exports = model("Orden", OrdenSchema);
-  

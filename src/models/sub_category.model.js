@@ -10,11 +10,6 @@ const SubCategorySchema = Schema({
         type: String,
         required: [true, 'La descripción es obligatoria']
     },
-    number: {
-        type: Number,
-        required: [true, 'El número es obligatorio'],
-        unique: true
-    },
     category: {
         type: Schema.Types.ObjectId,
         ref: 'Category',

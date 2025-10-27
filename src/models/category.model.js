@@ -6,9 +6,10 @@ const CategorySchema = Schema({
         required: [true, 'name is required'],
         unique: true
     },
-    number: {
-        type: Number,
-        required: [true, 'number is required'],
+    isSubCatalogo: {
+        type: Boolean,
+        default: false,
+        required: [true, 'El número es obligatorio'],
         unique: true
     },
     estado: {
