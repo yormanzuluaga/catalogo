@@ -47,6 +47,7 @@ categotyCtrl.createrCategory = async (req = request, res = response) => {
         const data = {
             name: name,
             number: number,
+            img: img,
             user: req.user._id,
             ...body
         }

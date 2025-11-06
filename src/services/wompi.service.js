@@ -134,25 +134,36 @@ class WompiService {
                 redirect_url
             } = linkData;
 
+            // Estructura de datos según documentación de Wompi
             const paymentLinkData = {
-                name,
-                description,
-                single_use,
-                amount_in_cents,
-                currency,
-                collect_shipping,
-                redirect_url
+                name,                    // Nombre del link de pago
+                description,             // Descripción del pago
+                single_use,              // false para múltiples transacciones, true para una sola
+                amount_in_cents,         // Monto en centavos (obligatorio)
+                currency,                // Moneda (COP por defecto)
+                collect_shipping         // Si recoger información de envío
             };
 
+            // Campos opcionales
             if (expires_at) {
+                // Fecha en formato ISO 8601 con UTC
                 paymentLinkData.expires_at = expires_at;
             }
 
-            console.log('🔗 Creando link de pago:', name);
+            if (redirect_url) {
+                paymentLinkData.redirect_url = redirect_url;
+            }
+
+            console.log('🔗 Creando link de pago en Wompi:');
+            console.log('   📋 Nombre:', name);
+            console.log('   💰 Monto:', this.fromCents(amount_in_cents), 'COP');
+            console.log('   🔄 Single use:', single_use);
             
             const response = await this.api.post('/payment_links', paymentLinkData);
             
-            console.log('✅ Link de pago creado:', response.data.data.id);
+            console.log('✅ Link de pago creado exitosamente:');
+            console.log('   🆔 ID:', response.data.data.id);
+            console.log('   🔗 URL:', response.data.data.permalink);
             
             return {
                 success: true,

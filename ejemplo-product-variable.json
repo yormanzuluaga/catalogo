@@ -1,0 +1,140 @@
+{
+     "name": "Polvo Suelto",
+    "model": "E020",
+    "brand": "690a2c765b7552b97e3cb3c2",
+    "subCategory": "690a1d70fcc08da587dbd6bc",
+    "productType": "variant",
+    "description": "Fórmula liviana que no agrega peso ni textura a la piel. Cobertura construible de acabado mate que sella el maquillaje para prolongar su duración, sin sensación de sequedad. Apto para todo tipo de piel. :contentReference[oaicite:2]{index=2}",
+    "urlVideo": "",
+    "details": {
+      "specifications": [
+        {
+          "name": "Formato",
+          "value": "Polvo suelto",
+          "_id": "690ac734342e110ae18d6bea"
+        },
+        {
+          "name": "Acabado",
+          "value": "Mate",
+          "_id": "690ac734342e110ae18d6beb"
+        }
+      ],
+      "features": [
+        "No añade textura pesada",
+        "Ideal para sellar maquillaje",
+        "Apto para todo tipo de piel"
+      ],
+      "included": [
+        "1 polvo suelto"
+      ],
+      "instructions": "Aplica con brocha grande o esponja sobre el rostro o zona T, retira el exceso.",
+      "careInstructions": "Conservar con tapa, en lugar seco."
+    },
+    "warranty": {
+      "hasWarranty": false,
+      "duration": {
+        "value": 0,
+        "unit": "meses"
+      },
+      "type": "tienda",
+      "coverage": []
+    },
+    "variants": [
+      {
+        "sku": "EBPS02",
+        "color": {
+          "name": "Polvo 02",
+          "code": "#2F1B14"
+        },
+        "size": null,
+        "pricing": {
+          "costPrice": 10000,
+          "salePrice": 23900,
+          "profit": {
+                "amount": 5000,
+                "percentage": 20
+            },
+          "commission": 5000
+        },
+        "points": {
+          "earnPoints": 180,
+          "redeemPoints": 1000
+        },
+        "stock": 1000,
+        "images": [],
+        "barcode": null,
+        "available": true
+      },
+      {
+        "sku": "EBPS03",
+        "color": {
+          "name": "Polvo 03",
+          "code": "#2F1B14"
+        },
+        "size": null,
+        "pricing": {
+          "costPrice": 10000,
+          "salePrice": 23900,
+          "profit": {
+                "amount": 5000,
+                "percentage": 20
+            },
+          "commission": 5000
+        },
+        "points": {
+          "earnPoints": 180,
+          "redeemPoints": 1000
+        },
+        "stock": 1000,
+        "images": [],
+        "barcode": null,
+        "available": true
+      },
+      {
+        "sku": "EBPS04",
+        "color": {
+          "name": "Polvo 04",
+          "code": "#2F1B14"
+        },
+        "size": null,
+        "pricing": {
+          "costPrice": 10000,
+          "salePrice": 23900,
+           "profit": {
+                "amount": 5000,
+                "percentage": 20
+            },
+          "commission": 5000
+        },
+        "points": {
+          "earnPoints": 180,
+          "redeemPoints": 1000
+        },
+        "stock": 1000,
+        "images": [],
+        "barcode": null,
+        "available": true
+      }
+    ],
+    "discount": [
+        {
+          "type": "fixed",
+          "value": 0,
+          "startDate": "2025-11-15T00:00:00.000Z",
+          "endDate": "2025-12-15T23:59:59.000Z",
+          "minQuantity": 1
+        }
+    ],
+    "deliveryTime": "1-3 días hábiles",
+    "img": "",
+    "images": [],
+    "countryCodes": [
+      { "countryCode": "CO" }
+    ],
+    "cities": [
+      { "city": "Medellín" },
+      { "city": "Bogotá" }
+    ],
+    "available": true,
+    "estado": true
+  }

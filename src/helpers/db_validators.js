@@ -77,6 +77,25 @@ helpers.subCategoryNumberExists = async (number) => {
     return true;
 }
 
+// Validador para marcas
+helpers.brandExistsId = async (id) => {
+    const Brand = require('../models/brand.model');
+    const brandExists = await Brand.findById(id);
+    if (!brandExists) {
+        throw new Error(`La marca con id ${id} no existe`);
+    }
+    return true;
+}
+
+helpers.brandNameExists = async (name) => {
+    const Brand = require('../models/brand.model');
+    const brandExists = await Brand.findOne({ name });
+    if (brandExists) {
+        throw new Error(`La marca ${name} ya existe`);
+    }
+    return true;
+}
+
 helpers.coleccionesPermitidas = (collection = '', collections = []) => {
     const incluide = collections.includes(collection);
     if (!incluide) {

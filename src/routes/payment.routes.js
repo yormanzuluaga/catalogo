@@ -17,6 +17,10 @@ router.post('/order/:orderId', [
     check('payment_method', 'Método de pago es requerido').optional().not().isEmpty(),
     check('customer_document', 'Documento del cliente es requerido para pago directo').optional().isLength({ min: 5 }),
     check('use_payment_link', 'use_payment_link debe ser boolean').optional().isBoolean(),
+    check('single_use', 'single_use debe ser boolean').optional().isBoolean(),
+    check('collect_shipping', 'collect_shipping debe ser boolean').optional().isBoolean(),
+    check('expires_in_hours', 'expires_in_hours debe ser un número positivo').optional().isInt({ min: 1, max: 8760 }),
+    check('redirect_url', 'redirect_url debe ser una URL válida').optional().isURL(),
     middleware.validarCampos
 ], paymentCtrl.createPayment);
 

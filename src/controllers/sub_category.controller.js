@@ -79,12 +79,16 @@ subCategoryCtrl.createSubCategory = async (req = request, res = response) => {
     try {
         const { estado, user, ...body } = req.body;
 
-        // Verificar si la subcategoría ya existe
-        const subCategoryDB = await SubCategory.findOne({ name: body.name });
+        // Verificar si la subcategoría ya existe EN LA MISMA CATEGORÍA
+        const subCategoryDB = await SubCategory.findOne({ 
+            name: body.name, 
+            category: body.category,
+            estado: true
+        });
 
         if (subCategoryDB) {
             return res.status(400).json({
-                msg: `La subcategoría ${subCategoryDB.name} ya existe`
+                msg: `La subcategoría "${body.name}" ya existe en esta categoría`
             });
         }
 
@@ -141,6 +145,23 @@ subCategoryCtrl.updateSubCategory = async (req = request, res = response) => {
             return res.status(404).json({
                 msg: 'Subcategoría no encontrada'
             });
+        }
+
+        // Si se está actualizando el nombre, verificar duplicados en la misma categoría
+        if (data.name) {
+            const categoryToCheck = data.category || currentSubCategory.category;
+            const existingSubCategory = await SubCategory.findOne({
+                name: data.name,
+                category: categoryToCheck,
+                estado: true,
+                _id: { $ne: id } // Excluir la subcategoría actual
+            });
+
+            if (existingSubCategory) {
+                return res.status(400).json({
+                    msg: `La subcategoría "${data.name}" ya existe en esta categoría`
+                });
+            }
         }
 
         if (data.name) {

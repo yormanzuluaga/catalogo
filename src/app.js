@@ -18,6 +18,8 @@ const uploads = require('./routes/uploads.routes');
 const wallet = require('./routes/wallet.routes');
 const orden = require('./routes/orden.routes');
 const payment = require('./routes/payment.routes');
+const catalog = require('./routes/catalog.routes');
+const brand = require('./routes/brand.routes');
 
 app.use(cors())
 
@@ -43,5 +45,7 @@ app.use('/api/uploads', uploads)
 app.use('/api/wallet', wallet)
 app.use('/api/orden', orden)
 app.use('/api/payments', payment)
+app.use('/api/catalogs', catalog)
+app.use('/api/brands', brand)
 
 module.exports = app;

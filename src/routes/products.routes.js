@@ -10,6 +10,27 @@ const productsCtrl  = require('../controllers/products.controller')
 
 const router = Router();
 
+// ========== RUTAS DE MARCAS ==========
+
+// Obtener todas las marcas disponibles
+router.get('/brands', [
+    middlewareJWT.validarJWT,
+], productsCtrl.getAllBrands);
+
+// Obtener productos por marca
+router.get('/brand/:brand', [
+    middlewareJWT.validarJWT,
+    check('brand', 'La marca es obligatoria').not().isEmpty(),
+    middleware.validarCampos,
+], productsCtrl.getProductsByBrand);
+
+// Obtener estadísticas de marcas
+router.get('/brands/stats', [
+    middlewareJWT.validarJWT,
+], productsCtrl.getBrandStats);
+
+// ========== RUTAS DE PRODUCTOS ==========
+
 //visualizar productos por subcategoría (default)
 router.get('/subcategory/:id',[
     middlewareJWT.validarJWT,
@@ -45,6 +66,8 @@ router.post('/',[
     middlewareJWT.validarJWT,
     middlewareRoles.hasRole('ADMIN_ROLE'),
     check('name', 'El nombre es obligatorio').not().isEmpty(),
+    check('brand', 'La marca es obligatoria').isMongoId().withMessage('La marca debe ser un ID válido'),
+    check('brand').custom(helpers.brandExistsId),
     // Validación personalizada para category o subCategory
     check().custom((value, { req }) => {
         if (!req.body.category && !req.body.subCategory) {
@@ -66,6 +89,8 @@ router.post('/',[
 router.put('/:id',[
     middlewareJWT.validarJWT,
     //check('category', 'La categoria es obligatorio').isMongoId(),
+    check('brand').optional().isMongoId().withMessage('La marca debe ser un ID válido'),
+    check('brand').optional().custom(helpers.brandExistsId),
     check('id').custom(helpers.productExistsId),
     middleware.validarCampos,
 ], productsCtrl.updateproduct)

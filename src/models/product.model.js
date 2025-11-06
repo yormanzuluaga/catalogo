@@ -11,7 +11,9 @@ const ProductSchema = Schema({
         type: String,
     },
     brand: {
-        type: String,
+        type: Schema.Types.ObjectId,
+        ref: 'Brand',
+        required: [true, 'La marca es obligatoria']
     },
     urlVideo : {
         type: String,
@@ -54,17 +56,23 @@ const ProductSchema = Schema({
         type: Number,
         default: 0
     },
-    // Información financiera del producto
+    // Información financiera del producto (principal - para productos simples o promedio de variantes)
     pricing: {
         costPrice: {
             type: Number,
-            required: true,
-            min: 0
+            required: function() {
+                return this.productType === 'simple';
+            },
+            min: 0,
+            default: 0
         },
         salePrice: {
             type: Number,
-            required: true,
-            min: 0
+            required: function() {
+                return this.productType === 'simple';
+            },
+            min: 0,
+            default: 0
         },
         profit: {
             amount: {

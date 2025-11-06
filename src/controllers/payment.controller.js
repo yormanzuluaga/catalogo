@@ -15,7 +15,10 @@ paymentCtrl.createPayment = async (req = request, res = response) => {
             payment_method = 'CARD',
             customer_document,
             redirect_url,
-            use_payment_link = true 
+            use_payment_link = true,
+            single_use = true,
+            collect_shipping = false,
+            expires_in_hours = 24
         } = req.body;
 
         // Buscar la orden
@@ -44,14 +47,20 @@ paymentCtrl.createPayment = async (req = request, res = response) => {
         let paymentResult;
 
         if (use_payment_link) {
+            // Calcular fecha de expiración
+            const expirationDate = new Date();
+            expirationDate.setHours(expirationDate.getHours() + expires_in_hours);
+            const expires_at = expirationDate.toISOString();
+
             // Crear link de pago (recomendado para la mayoría de casos)
             paymentResult = await wompiService.createPaymentLink({
-                name: `Pago Orden #${order._id.toString().slice(-6)}`,
-                description: `Compra de ${order.items.length} producto(s) - ${order.name}`,
+                name: `Pago Orden #${order._id.toString().slice(-6)} - ${order.name}`,
+                description: `Compra de ${order.items.length} producto(s) por $${order.totalPrice.toLocaleString('es-CO')} - Cliente: ${order.name}`,
                 amount_in_cents: amountInCents,
                 currency: 'COP',
-                single_use: true,
-                collect_shipping: false,
+                single_use: single_use,
+                collect_shipping: collect_shipping,
+                expires_at: expires_at,
                 redirect_url: redirect_url || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/orders/${order._id}/payment-result`
             });
 

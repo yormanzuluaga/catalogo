@@ -27,6 +27,7 @@ productsCtrl.getAllproducts = async (req = request, res = response) => {
             Product.countDocuments(query).lean(),
             Product.find(query)
                 .populate('user', 'firstName')
+                .populate('brand', 'name logo')
                 .populate({
                     path: populateField,
                     select: 'name category',
@@ -61,6 +62,7 @@ productsCtrl.getproduct = async (req = request, res = response) => {
         
         let product = await Product.findById(id)
             .populate('user', 'firstName')
+            .populate('brand', 'name logo')
             .lean();
 
         if (!product) {
@@ -73,11 +75,13 @@ productsCtrl.getproduct = async (req = request, res = response) => {
         if (product.category) {
             product = await Product.findById(id)
                 .populate('user', 'firstName')
+                .populate('brand', 'name logo')
                 .populate('category', 'name')
                 .lean();
         } else if (product.subCategory) {
             product = await Product.findById(id)
                 .populate('user', 'firstName')
+                .populate('brand', 'name logo')
                 .populate({
                     path: 'subCategory',
                     select: 'name category',
@@ -1462,4 +1466,181 @@ productsCtrl.calculateSaleCommission = async (req = request, res = response) => 
     }
 };
 
-module.exports = productsCtrl
+// Obtener todas las marcas disponibles
+productsCtrl.getAllBrands = async (req = request, res = response) => {
+    try {
+        // Obtener todas las marcas únicas de productos activos
+        const brands = await Product.distinct('brand', { 
+            estado: true,
+            brand: { $exists: true, $ne: null, $ne: '' } 
+        });
+
+        // Contar productos por marca
+        const brandsWithCount = await Promise.all(
+            brands.map(async (brand) => {
+                const productCount = await Product.countDocuments({
+                    estado: true,
+                    brand: brand
+                });
+                
+                return {
+                    name: brand,
+                    productCount
+                };
+            })
+        );
+
+        // Ordenar marcas alfabéticamente
+        brandsWithCount.sort((a, b) => a.name.localeCompare(b.name));
+
+        res.json({
+            ok: true,
+            totalBrands: brandsWithCount.length,
+            brands: brandsWithCount
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo marcas:', error);
+        res.status(500).json({
+            ok: false,
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+}
+
+// Obtener productos por marca
+productsCtrl.getProductsByBrand = async (req = request, res = response) => {
+    try {
+        const { brand } = req.params;
+        const { limit = 10, from = 0, category, subCategory } = req.query;
+
+        // Construir query base
+        let query = { 
+            estado: true, 
+            brand: { $regex: new RegExp(`^${brand}$`, 'i') } // Case insensitive
+        };
+
+        // Filtros adicionales opcionales
+        if (category) {
+            query.category = category;
+        }
+        if (subCategory) {
+            query.subCategory = subCategory;
+        }
+
+        const [totalProducts, products] = await Promise.all([
+            Product.countDocuments(query).lean(),
+            Product.find(query)
+                .populate('user', 'firstName')
+                .populate('category', 'name')
+                .populate({
+                    path: 'subCategory',
+                    select: 'name category',
+                    populate: {
+                        path: 'category',
+                        select: 'name'
+                    }
+                })
+                .skip(Number(from))
+                .limit(Number(limit))
+                .sort({ createdAt: -1 })
+                .lean()
+        ]);
+
+        if (products.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: `No se encontraron productos para la marca: ${brand}`
+            });
+        }
+
+        res.json({
+            ok: true,
+            brand: brand,
+            totalProducts,
+            from: Number(from),
+            limit: Number(limit),
+            products
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo productos por marca:', error);
+        res.status(500).json({
+            ok: false,
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+}
+
+// Obtener estadísticas de marcas
+productsCtrl.getBrandStats = async (req = request, res = response) => {
+    try {
+        // Agregación para obtener estadísticas completas por marca
+        const brandStats = await Product.aggregate([
+            // Filtrar solo productos activos con marca
+            {
+                $match: {
+                    estado: true,
+                    brand: { $exists: true, $ne: null, $ne: '' }
+                }
+            },
+            // Agrupar por marca
+            {
+                $group: {
+                    _id: '$brand',
+                    productCount: { $sum: 1 },
+                    avgPrice: { $avg: '$pricing.salePrice' },
+                    minPrice: { $min: '$pricing.salePrice' },
+                    maxPrice: { $max: '$pricing.salePrice' },
+                    totalStock: { $sum: '$stock' },
+                    categories: { $addToSet: '$category' },
+                    subCategories: { $addToSet: '$subCategory' }
+                }
+            },
+            // Ordenar por cantidad de productos (descendente)
+            {
+                $sort: { productCount: -1 }
+            }
+        ]);
+
+        // Obtener información adicional de categorías
+        const enrichedStats = await Promise.all(
+            brandStats.map(async (stat) => {
+                // Contar categorías únicas (eliminar nulls)
+                const categoryCount = stat.categories.filter(cat => cat !== null).length;
+                const subCategoryCount = stat.subCategories.filter(subCat => subCat !== null).length;
+
+                return {
+                    brand: stat._id,
+                    productCount: stat.productCount,
+                    pricing: {
+                        average: Math.round(stat.avgPrice || 0),
+                        min: stat.minPrice || 0,
+                        max: stat.maxPrice || 0
+                    },
+                    totalStock: stat.totalStock || 0,
+                    categoryCount,
+                    subCategoryCount
+                };
+            })
+        );
+
+        res.json({
+            ok: true,
+            totalBrands: enrichedStats.length,
+            stats: enrichedStats
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo estadísticas de marcas:', error);
+        res.status(500).json({
+            ok: false,
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+}
+
+module.exports = productsCtrl;

@@ -1,0 +1,34 @@
+{
+  "name": "Polvo Compacto Test",
+  "brand": "690a2c765b7552b97e3cb3c2",
+  "subCategory": "690a1d70fcc08da587dbd6bc",
+  "productType": "variant",
+  "description": "Polvo compacto de prueba",
+  "pricing": {
+    "costPrice": 10000,
+    "salePrice": 22900,
+    "commission": 5000
+  },
+  "warranty": {
+    "hasWarranty": false,
+    "type": "tienda"
+  },
+  "variants": [
+    {
+      "sku": "TEST-001",
+      "color": {
+        "name": "Porcelana",
+        "code": "#FFF8DC"
+      },
+      "pricing": {
+        "costPrice": 10000,
+        "salePrice": 22900,
+        "commission": 5000
+      },
+      "stock": 100,
+      "available": true
+    }
+  ],
+  "available": true,
+  "estado": true
+}

@@ -1,0 +1,62 @@
+{
+  "producto_simple_basico": {
+    "name": "Crema Facial Hidratante",
+    "brand": "690a1234567890abcdef1234",
+    "category": "690a113ffcc08da587dbd6a3",
+    "productType": "simple",
+    "description": "Crema hidratante para rostro con ácido hialurónico",
+    "simpleProduct": {
+      "pricing": {
+        "costPrice": 15000,
+        "salePrice": 35000,
+        "commission": 5000
+      },
+      "stock": 50,
+      "quantity": 1
+    },
+    "img": "https://ejemplo.com/crema.jpg",
+    "available": true,
+    "estado": true
+  },
+
+  "producto_variante_basico": {
+    "name": "Labial Mate Premium",
+    "brand": "690a1234567890abcdef1234", 
+    "subCategory": "690a1e33fcc08da587dbd6c3",
+    "productType": "variant",
+    "description": "Labial mate de larga duración en varios colores",
+    "variants": [
+      {
+        "sku": "LAB-ROJO-001",
+        "color": {
+          "name": "Rojo Intenso",
+          "code": "#DC143C"
+        },
+        "pricing": {
+          "costPrice": 12000,
+          "salePrice": 28000,
+          "commission": 4000
+        },
+        "stock": 25,
+        "available": true
+      },
+      {
+        "sku": "LAB-ROSA-002", 
+        "color": {
+          "name": "Rosa Nude",
+          "code": "#D4A4A4"
+        },
+        "pricing": {
+          "costPrice": 12000,
+          "salePrice": 28000,
+          "commission": 4000
+        },
+        "stock": 30,
+        "available": true
+      }
+    ],
+    "img": "https://ejemplo.com/labial.jpg",
+    "available": true,
+    "estado": true
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "producto_simple_basico": {
+    "name": "Labial Mate Rojo",
+    "brand": "690a2c765b7552b97e3cb3c2",
+    "subCategory": "690a1e33fcc08da587dbd6c3",
+    "productType": "simple",
+    "description": "Labial mate de larga duración en tono rojo clásico. Fórmula hidratante que no reseca los labios.",
+    "pricing": {
+      "costPrice": 8000,
+      "salePrice": 18000,
+      "commission": 3000
+    },
+    "simpleProduct": {
+      "stock": 50,
+      "barcode": "123456789012"
+    },
+    "warranty": {
+      "hasWarranty": false,
+      "type": "tienda"
+    },
+    "available": true,
+    "estado": true
+  },
+
+  "producto_simple_completo": {
+    "name": "Crema Facial Hidratante",
+    "model": "CF-HID-001",
+    "brand": "690a2c765b7552b97e3cb3c2",
+    "category": "690a113ffcc08da587dbd6a3",
+    "productType": "simple",
+    "description": "Crema facial hidratante para todo tipo de piel. Formulada con ácido hialurónico y vitamina E para una hidratación profunda de 24 horas.",
+    "urlVideo": "https://youtube.com/watch?v=ejemplo",
+    "pricing": {
+      "costPrice": 25000,
+      "salePrice": 55000,
+      "commission": 8000
+    },
+    "points": {
+      "earnPoints": 550,
+      "redeemPoints": 4400
+    },
+    "simpleProduct": {
+      "stock": 30,
+      "quantity": 50,
+      "barcode": "789123456789"
+    },
+    "details": {
+      "specifications": [
+        {
+          "name": "Peso",
+          "value": "50",
+          "unit": "ml"
+        },
+        {
+          "name": "Tipo de piel",
+          "value": "Todo tipo de piel"
+        },
+        {
+          "name": "Factor de protección",
+          "value": "SPF 15"
+        }
+      ],
+      "features": [
+        "Hidratación 24 horas",
+        "Con ácido hialurónico",
+        "Rica en vitamina E",
+        "No comedogénica",
+        "Dermatológicamente probada"
+      ],
+      "included": [
+        "1 crema facial 50ml",
+        "Espátula aplicadora",
+        "Manual de uso"
+      ],
+      "instructions": "Aplicar en rostro limpio, mañana y noche. Masajear suavemente hasta su completa absorción.",
+      "careInstructions": "Mantener en lugar fresco y seco. Evitar contacto directo con los ojos."
+    },
+    "warranty": {
+      "hasWarranty": true,
+      "duration": {
+        "value": 6,
+        "unit": "meses"
+      },
+      "type": "fabricante",
+      "coverage": [
+        "Defectos de fabricación",
+        "Problemas de calidad del producto"
+      ],
+      "exclusions": [
+        "Reacciones alérgicas",
+        "Mal uso del producto"
+      ]
+    },
+    "discount": [
+      {
+        "type": "percentage",
+        "value": 15,
+        "startDate": "2025-11-15T00:00:00.000Z",
+        "endDate": "2025-12-15T23:59:59.000Z",
+        "minQuantity": 2
+      }
+    ],
+    "deliveryTime": "2-4 días hábiles",
+    "img": "https://ejemplo.com/crema-principal.jpg",
+    "images": [
+      "https://ejemplo.com/crema-textura.jpg",
+      "https://ejemplo.com/crema-aplicacion.jpg",
+      "https://ejemplo.com/crema-ingredientes.jpg"
+    ],
+    "countryCodes": [
+      { "countryCode": "CO" },
+      { "countryCode": "EC" }
+    ],
+    "cities": [
+      { "city": "Bogotá" },
+      { "city": "Medellín" },
+      { "city": "Cali" }
+    ],
+    "available": true,
+    "estado": true
+  },
+
+  "producto_simple_maquillaje": {
+    "name": "Base Líquida Cobertura Total",
+    "model": "BL-CT-035",
+    "brand": "690a2c765b7552b97e3cb3c2",
+    "subCategory": "690a1d70fcc08da587dbd6bc",
+    "productType": "simple",
+    "description": "Base líquida de cobertura total y acabado natural. Tono Beige Medio para pieles morenas claras.",
+    "pricing": {
+      "costPrice": 18000,
+      "salePrice": 42000,
+      "commission": 6000
+    },
+    "simpleProduct": {
+      "stock": 25,
+      "barcode": "456789123456"
+    },
+    "details": {
+      "specifications": [
+        {
+          "name": "Tono",
+          "value": "Beige Medio"
+        },
+        {
+          "name": "Cobertura",
+          "value": "Total"
+        },
+        {
+          "name": "Acabado",
+          "value": "Natural mate"
+        },
+        {
+          "name": "Volumen",
+          "value": "30",
+          "unit": "ml"
+        }
+      ],
+      "features": [
+        "Cobertura total",
+        "Larga duración hasta 12 horas",
+        "Resistente al agua",
+        "No transfiere",
+        "Para pieles morenas claras"
+      ],
+      "included": [
+        "1 base líquida 30ml"
+      ],
+      "instructions": "Aplicar con brocha, esponja o dedos sobre el rostro limpio. Difuminar desde el centro hacia afuera.",
+      "careInstructions": "Cerrar bien después de usar. Agitar antes de aplicar."
+    },
+    "warranty": {
+      "hasWarranty": false,
+      "type": "tienda"
+    },
+    "deliveryTime": "1-3 días hábiles",
+    "available": true,
+    "estado": true
+  },
+
+  "producto_simple_minimo": {
+    "name": "Gloss Labial Transparente",
+    "brand": "690a2c765b7552b97e3cb3c2",
+    "subCategory": "690a1e33fcc08da587dbd6c3",
+    "productType": "simple",
+    "description": "Gloss labial transparente con acabado brillante.",
+    "pricing": {
+      "costPrice": 5000,
+      "salePrice": 12000
+    },
+    "simpleProduct": {
+      "stock": 100
+    },
+    "warranty": {
+      "hasWarranty": false,
+      "type": "tienda"
+    },
+    "available": true,
+    "estado": true
+  },
+
+  "notas_importante": {
+    "diferencias_producto_simple": {
+      "productType": "Debe ser 'simple'",
+      "pricing_requerido": "pricing.costPrice y pricing.salePrice son OBLIGATORIOS para productos simples",
+      "simpleProduct": "Usa simpleProduct para stock, barcode, etc.",
+      "variants": "NO uses variants - es solo para productos con variantes"
+    },
+    "campos_obligatorios": [
+      "name",
+      "brand", 
+      "productType: 'simple'",
+      "pricing.costPrice",
+      "pricing.salePrice",
+      "warranty.type"
+    ],
+    "campos_opcionales": [
+      "model",
+      "description", 
+      "urlVideo",
+      "details",
+      "simpleProduct.stock",
+      "simpleProduct.barcode",
+      "points",
+      "discount",
+      "images"
+    ]
+  }
+}
