@@ -20,6 +20,7 @@ const orden = require('./routes/orden.routes');
 const payment = require('./routes/payment.routes');
 const catalog = require('./routes/catalog.routes');
 const brand = require('./routes/brand.routes');
+const address = require('./routes/address.routes');
 
 app.use(cors())
 
@@ -47,5 +48,6 @@ app.use('/api/orden', orden)
 app.use('/api/payments', payment)
 app.use('/api/catalogs', catalog)
 app.use('/api/brands', brand)
+app.use('/api/addresses', address)
 
 module.exports = app;

@@ -1,0 +1,233 @@
+{
+  "api_direcciones_ejemplos": {
+    
+    "base_url": "http://localhost:3000/api/addresses",
+    "autenticacion": "Bearer TOKEN_JWT",
+    
+    "endpoints": {
+      
+      "1_obtener_direcciones": {
+        "metodo": "GET",
+        "url": "/api/addresses",
+        "descripcion": "Obtiene todas las direcciones del usuario autenticado",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT"
+        },
+        "respuesta_ejemplo": {
+          "total": 2,
+          "addresses": [
+            {
+              "uid": "64abc123def456789012345",
+              "title": "Casa",
+              "fullName": "María Pérez",
+              "phone": "+57 300 123 4567",
+              "address": "Calle 45 #12-34, Apto 501",
+              "city": "Medellín",
+              "state": "Antioquia",
+              "country": "Colombia",
+              "postalCode": "050001",
+              "neighborhood": "El Poblado",
+              "instructions": "Portería blanca, timbre 501",
+              "isDefault": true,
+              "coordinates": {
+                "latitude": 6.2442,
+                "longitude": -75.5812
+              },
+              "user": {
+                "firstName": "María",
+                "lastName": "Pérez"
+              },
+              "createdAt": "2025-11-06T10:00:00.000Z",
+              "updatedAt": "2025-11-06T10:00:00.000Z"
+            }
+          ]
+        }
+      },
+
+      "2_obtener_direccion_especifica": {
+        "metodo": "GET",
+        "url": "/api/addresses/:id",
+        "descripcion": "Obtiene una dirección específica por ID",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT"
+        }
+      },
+
+      "3_obtener_direccion_predeterminada": {
+        "metodo": "GET", 
+        "url": "/api/addresses/default",
+        "descripcion": "Obtiene la dirección predeterminada del usuario",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT"
+        }
+      },
+
+      "4_crear_direccion": {
+        "metodo": "POST",
+        "url": "/api/addresses",
+        "descripcion": "Crea una nueva dirección",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT",
+          "Content-Type": "application/json"
+        },
+        "body_ejemplo": {
+          "title": "Oficina",
+          "fullName": "Juan Carlos Rodríguez",
+          "phone": "+57 311 987 6543",
+          "address": "Carrera 70 #23-45, Torre B, Piso 12",
+          "city": "Bogotá",
+          "state": "Cundinamarca",
+          "country": "Colombia",
+          "postalCode": "110111",
+          "neighborhood": "Zona Rosa",
+          "instructions": "Preguntar en recepción por Juan Carlos",
+          "isDefault": false,
+          "coordinates": {
+            "latitude": 4.6482,
+            "longitude": -74.0648
+          }
+        }
+      },
+
+      "5_actualizar_direccion": {
+        "metodo": "PUT",
+        "url": "/api/addresses/:id",
+        "descripcion": "Actualiza una dirección existente",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT",
+          "Content-Type": "application/json"
+        },
+        "body_ejemplo": {
+          "title": "Casa Principal",
+          "fullName": "María Pérez García",
+          "phone": "+57 300 123 4567",
+          "address": "Calle 45 #12-34, Apto 501",
+          "city": "Medellín",
+          "state": "Antioquia",
+          "country": "Colombia",
+          "neighborhood": "El Poblado",
+          "instructions": "Portería blanca, timbre 501. Dejar con portero"
+        }
+      },
+
+      "6_establecer_predeterminada": {
+        "metodo": "PATCH",
+        "url": "/api/addresses/:id/default",
+        "descripcion": "Establece una dirección como predeterminada",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT"
+        }
+      },
+
+      "7_eliminar_direccion": {
+        "metodo": "DELETE",
+        "url": "/api/addresses/:id",
+        "descripcion": "Elimina una dirección (soft delete)",
+        "headers": {
+          "Authorization": "Bearer TU_TOKEN_JWT"
+        }
+      }
+    }
+  },
+
+  "ejemplos_direcciones_colombia": [
+    {
+      "title": "Casa",
+      "fullName": "Ana María Jiménez",
+      "phone": "+57 310 456 7890",
+      "address": "Calle 80 #15-25, Casa 12",
+      "city": "Medellín",
+      "state": "Antioquia",
+      "country": "Colombia",
+      "postalCode": "050015",
+      "neighborhood": "Laureles",
+      "instructions": "Casa amarilla con portón negro",
+      "isDefault": true
+    },
+    {
+      "title": "Trabajo",
+      "fullName": "Carlos Andrés Ruiz",
+      "phone": "+57 320 789 1234",
+      "address": "Carrera 15 #93-47, Edificio Colpatria, Piso 25",
+      "city": "Bogotá",
+      "state": "Cundinamarca", 
+      "country": "Colombia",
+      "postalCode": "110221",
+      "neighborhood": "Chapinero",
+      "instructions": "Oficina 2504, preguntar en recepción",
+      "isDefault": false
+    },
+    {
+      "title": "Casa Familiar",
+      "fullName": "Lucía Fernanda García",
+      "phone": "+57 315 234 5678",
+      "address": "Avenida 6N #28-15",
+      "city": "Cali",
+      "state": "Valle del Cauca",
+      "country": "Colombia", 
+      "postalCode": "760042",
+      "neighborhood": "Granada",
+      "instructions": "Casa esquinera, portón café",
+      "isDefault": false,
+      "coordinates": {
+        "latitude": 3.4516,
+        "longitude": -76.5320
+      }
+    },
+    {
+      "title": "Apartamento",
+      "fullName": "Roberto Martín González",
+      "phone": "+57 317 345 6789",
+      "address": "Calle 19 #4-62, Torre Norte, Apto 1205",
+      "city": "Barranquilla",
+      "state": "Atlántico",
+      "country": "Colombia",
+      "postalCode": "080001",
+      "neighborhood": "El Prado",
+      "instructions": "Torre norte, ascensor izquierdo",
+      "isDefault": false
+    }
+  ],
+
+  "campos_requeridos": [
+    "title",
+    "fullName",
+    "phone", 
+    "address",
+    "city",
+    "state",
+    "country"
+  ],
+
+  "campos_opcionales": [
+    "postalCode",
+    "neighborhood",
+    "instructions", 
+    "isDefault",
+    "coordinates.latitude",
+    "coordinates.longitude"
+  ],
+
+  "notas_importantes": {
+    "autenticacion": "Todas las rutas requieren autenticación JWT",
+    "permisos": "Los usuarios solo pueden gestionar sus propias direcciones",
+    "direccion_default": "La primera dirección se marca automáticamente como predeterminada", 
+    "soft_delete": "Las direcciones eliminadas se marcan como inactivas (estado: false)",
+    "validaciones": "Todos los campos requeridos son validados en el backend",
+    "indices": "El modelo tiene índices optimizados para consultas por usuario",
+    "populate": "Las respuestas incluyen información básica del usuario"
+  },
+
+  "estructura_respuesta": {
+    "exito": {
+      "msg": "Mensaje descriptivo",
+      "address": "Objeto con datos de la dirección",
+      "addresses": "Array de direcciones (para getAllAddresses)",
+      "total": "Número total de direcciones (para getAllAddresses)"
+    },
+    "error": {
+      "msg": "Mensaje de error",
+      "error": "Detalles técnicos del error (solo en desarrollo)"
+    }
+  }
+}

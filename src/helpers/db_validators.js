@@ -96,6 +96,25 @@ helpers.brandNameExists = async (name) => {
     return true;
 }
 
+// Validador para direcciones
+helpers.addressExistsId = async (id) => {
+    const Address = require('../models/address.model');
+    const addressExists = await Address.findOne({ _id: id, estado: true });
+    if (!addressExists) {
+        throw new Error(`La dirección con id ${id} no existe`);
+    }
+    return true;
+}
+
+helpers.addressBelongsToUser = async (id, userId) => {
+    const Address = require('../models/address.model');
+    const address = await Address.findOne({ _id: id, user: userId, estado: true });
+    if (!address) {
+        throw new Error(`La dirección no existe o no pertenece al usuario`);
+    }
+    return true;
+}
+
 helpers.coleccionesPermitidas = (collection = '', collections = []) => {
     const incluide = collections.includes(collection);
     if (!incluide) {
