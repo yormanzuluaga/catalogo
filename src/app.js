@@ -21,6 +21,8 @@ const payment = require('./routes/payment.routes');
 const catalog = require('./routes/catalog.routes');
 const brand = require('./routes/brand.routes');
 const address = require('./routes/address.routes');
+const transaction = require('./routes/transaction.routes');
+const shippingOrder = require('./routes/shipping_order.routes'); // 🆕
 
 app.use(cors())
 
@@ -49,5 +51,7 @@ app.use('/api/payments', payment)
 app.use('/api/catalogs', catalog)
 app.use('/api/brands', brand)
 app.use('/api/addresses', address)
+app.use('/api/transactions', transaction)
+app.use('/api/shipping-orders', shippingOrder) // 🆕
 
 module.exports = app;

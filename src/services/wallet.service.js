@@ -312,6 +312,139 @@ class WalletService {
             throw error;
         }
     }
+
+    /**
+     * Agregar transacción al wallet (estado pendiente)
+     * @param {Object} params - Parámetros de la transacción
+     * @param {String} params.userId - ID del usuario
+     * @param {String} params.transactionId - ID de la transacción
+     * @param {String} params.transactionNumber - Número de transacción
+     * @param {Number} params.amount - Monto de la transacción
+     * @param {String} params.type - Tipo de transacción ('purchase', 'refund', etc.)
+     * @param {String} params.status - Estado ('pending', 'approved', 'cancelled')
+     */
+    static async addTransactionToWallet({ userId, transactionId, transactionNumber, amount, type = 'purchase', status = 'pending' }) {
+        try {
+            // Buscar o crear wallet del usuario
+            let wallet = await Wallet.findOne({ user: userId });
+            if (!wallet) {
+                wallet = new Wallet({
+                    user: userId,
+                    balance: 0,
+                    estado: true
+                });
+                await wallet.save();
+            }
+
+            // Crear movimiento en el wallet (pendiente)
+            const movement = new WalletMovements({
+                user: userId,
+                wallet: wallet._id,
+                transaction: transactionId,
+                tipo: type === 'purchase' ? 'debito' : 'credito',
+                monto: amount,
+                descripcion: `Transacción ${transactionNumber} - ${status}`,
+                referencia: transactionNumber,
+                estado_transaccion: status,
+                metadata: {
+                    transactionId,
+                    transactionNumber,
+                    type
+                }
+            });
+
+            await movement.save();
+
+            return {
+                success: true,
+                wallet,
+                movement
+            };
+        } catch (error) {
+            console.error('Error al agregar transacción al wallet:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Aprobar transacción y actualizar balance del wallet
+     * @param {Object} params - Parámetros de aprobación
+     * @param {String} params.userId - ID del usuario
+     * @param {String} params.transactionId - ID de la transacción
+     * @param {Number} params.amount - Monto de la transacción
+     */
+    static async approveTransaction({ userId, transactionId, amount }) {
+        try {
+            // Buscar el movimiento pendiente
+            const movement = await WalletMovements.findOne({
+                user: userId,
+                transaction: transactionId,
+                estado_transaccion: 'pending'
+            });
+
+            if (!movement) {
+                throw new Error('Movimiento de wallet no encontrado');
+            }
+
+            // Actualizar estado del movimiento
+            movement.estado_transaccion = 'approved';
+            movement.fecha_procesado = new Date();
+            movement.descripcion = movement.descripcion.replace('pending', 'approved');
+            await movement.save();
+
+            // Actualizar balance del wallet si es un crédito (ganancia/comisión)
+            const wallet = await Wallet.findById(movement.wallet);
+            if (movement.tipo === 'credito') {
+                wallet.balance += amount;
+                wallet.total_ganado += amount;
+                await wallet.save();
+            }
+
+            return {
+                success: true,
+                movement,
+                wallet
+            };
+        } catch (error) {
+            console.error('Error al aprobar transacción en wallet:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cancelar transacción en el wallet
+     * @param {Object} params - Parámetros de cancelación
+     * @param {String} params.userId - ID del usuario
+     * @param {String} params.transactionId - ID de la transacción
+     */
+    static async cancelTransaction({ userId, transactionId }) {
+        try {
+            // Buscar el movimiento pendiente
+            const movement = await WalletMovements.findOne({
+                user: userId,
+                transaction: transactionId,
+                estado_transaccion: 'pending'
+            });
+
+            if (!movement) {
+                throw new Error('Movimiento de wallet no encontrado');
+            }
+
+            // Actualizar estado del movimiento
+            movement.estado_transaccion = 'cancelled';
+            movement.fecha_procesado = new Date();
+            movement.descripcion = movement.descripcion.replace('pending', 'cancelled');
+            await movement.save();
+
+            return {
+                success: true,
+                movement
+            };
+        } catch (error) {
+            console.error('Error al cancelar transacción en wallet:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = WalletService;

@@ -9,7 +9,14 @@ const addressCtrl = {};
 addressCtrl.getAllAddresses = async (req = request, res = response) => {
     try {
         const { limit = 10, from = 0 } = req.query;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
+        
+        if (!userId) {
+            return res.status(400).json({
+                msg: 'Usuario no autenticado'
+            });
+        }
+        
         const query = { estado: true, user: userId };
 
         const [allAddresses, addresses] = await Promise.all([
@@ -42,7 +49,7 @@ addressCtrl.getAllAddresses = async (req = request, res = response) => {
 addressCtrl.getAddress = async (req = request, res = response) => {
     try {
         const { id } = req.params;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         const address = await Address.findOne({ 
             _id: id, 
@@ -73,7 +80,7 @@ addressCtrl.getAddress = async (req = request, res = response) => {
 addressCtrl.createAddress = async (req = request, res = response) => {
     try {
         const { estado, user, ...body } = req.body;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         // Verificar si es la primera dirección del usuario
         const existingAddresses = await Address.countDocuments({ 
@@ -123,7 +130,7 @@ addressCtrl.updateAddress = async (req = request, res = response) => {
     try {
         const { id } = req.params;
         const { estado, user, ...data } = req.body;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         // Verificar que la dirección pertenece al usuario
         const existingAddress = await Address.findOne({ 
@@ -171,7 +178,7 @@ addressCtrl.updateAddress = async (req = request, res = response) => {
 addressCtrl.deleteAddress = async (req = request, res = response) => {
     try {
         const { id } = req.params;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         // Verificar que la dirección pertenece al usuario
         const existingAddress = await Address.findOne({ 
@@ -222,7 +229,7 @@ addressCtrl.deleteAddress = async (req = request, res = response) => {
 addressCtrl.setDefaultAddress = async (req = request, res = response) => {
     try {
         const { id } = req.params;
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         // Verificar que la dirección pertenece al usuario
         const address = await Address.findOne({ 
@@ -269,7 +276,7 @@ addressCtrl.setDefaultAddress = async (req = request, res = response) => {
  */
 addressCtrl.getDefaultAddress = async (req = request, res = response) => {
     try {
-        const userId = req.user._id;
+        const userId = req.authenticatedUser?._id || req.user?._id;
 
         const defaultAddress = await Address.findOne({ 
             user: userId, 

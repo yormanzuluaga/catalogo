@@ -10,7 +10,10 @@
     "test-s3": "node test-s3.js",
     "test-variants": "node test-variants.js",
     "test-enhanced": "node test-enhanced-products.js",
-    "examples-sellers": "node examples-sellers-catalog.js"
+    "examples-sellers": "node examples-sellers-catalog.js",
+    "verify-products": "node verificar-productos.js",
+    "test-wallet": "./test-wallet-completo.sh",
+    "diagnose": "./diagnostico-wallet.sh"
   },
   "keywords": [],
   "author": "",

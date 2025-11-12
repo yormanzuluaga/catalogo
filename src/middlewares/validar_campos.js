@@ -5,7 +5,13 @@ const middleware = {}
 middleware.validarCampos = ( req, res, next ) => {
     const errors = validationResult(req);
     if(!errors.isEmpty()){
-        return res.status(400).json(errors)
+        console.log('=== VALIDATION ERRORS FOUND ===');
+        console.log(JSON.stringify(errors.array(), null, 2));
+        console.log('================================');
+        return res.status(400).json({
+            msg: 'Errores de validación',
+            errors: errors.array()
+        })
     }
 
     next();

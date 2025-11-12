@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "productId": "TU_PRODUCT_ID_AQUI",
+      "quantity": 2,
+      "unitPrice": 45800,
+      "commission": 5000,
+      "variations": {
+        "color": {
+          "name": "Rojo",
+          "code": "#FF0000"
+        },
+        "size": {
+          "name": "M",
+          "code": "M"
+        }
+      }
+    }
+  ],
+  "shippingAddressId": "TU_ADDRESS_ID_AQUI",
+  "customerNotes": "Por favor entregar en horario de oficina",
+  "deliveryInstructions": "Tocar el timbre 2 veces",
+  "wompiTransactionId": "wompi_12345_test",
+  "wompiReference": "REF-WOMPI-12345",
+  "paymentStatus": "approved",
+  "paymentMethod": "CARD",
+  "customerEmail": "cliente@ejemplo.com"
+}

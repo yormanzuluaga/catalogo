@@ -123,4 +123,27 @@ helpers.coleccionesPermitidas = (collection = '', collections = []) => {
     return true;
 }
 
+// Validadores para transacciones
+helpers.transactionExistsId = async (id) => {
+    const Transaction = require('../models/transaction.model');
+    const transactionExists = await Transaction.findOne({ _id: id, estado: true });
+    if (!transactionExists) {
+        throw new Error(`La transacción con id ${id} no existe`);
+    }
+    return true;
+}
+
+helpers.transactionBelongsToUser = async (id, userId) => {
+    const Transaction = require('../models/transaction.model');
+    const transaction = await Transaction.findOne({ _id: id, user: userId, estado: true });
+    if (!transaction) {
+        throw new Error(`La transacción no existe o no pertenece al usuario`);
+    }
+    return true;
+}
+
+// Alias para compatibility
+helpers.existeProductoPorId = helpers.productExistsId;
+helpers.existeAddressPorId = helpers.addressExistsId;
+
 module.exports = helpers
