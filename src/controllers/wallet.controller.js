@@ -6,11 +6,65 @@ const User = require('../models/user.model');
 const walletCtrl = {};
 
 /**
+ * 💰 Obtener balance completo con toda la información
+ * GET /api/wallet/balance
+ */
+walletCtrl.getCompleteBalance = async (req = request, res = response) => {
+    try {
+        const userId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
+
+        // Buscar o crear wallet
+        let wallet = await Wallet.findOne({ user: userId, estado: true })
+            .populate('user', 'firstName lastName email mobile countryCode avatar');
+
+        if (!wallet) {
+            wallet = new Wallet({
+                user: userId,
+                balance: 0,
+                pendingBalance: 0,
+                points: 0,
+                totalCommissionsEarned: 0,
+                totalEarned: 0,
+                totalPointsEarned: 0,
+                estado: true
+            });
+            await wallet.save();
+            await wallet.populate('user', 'firstName lastName email mobile countryCode avatar');
+        }
+
+        res.json({
+            ok: true,
+            balance: wallet.balance || 0,
+            pendingBalance: wallet.pendingBalance || 0,
+            points: wallet.points || 0,
+            totalCommissionsEarned: wallet.totalCommissionsEarned || 0,
+            totalEarned: wallet.totalEarned || 0,
+            totalPointsEarned: wallet.totalPointsEarned || 0,
+            settings: wallet.settings,
+            stats: wallet.stats,
+            user: {
+                id: wallet.user?._id,
+                name: `${wallet.user?.firstName || ''} ${wallet.user?.lastName || ''}`.trim(),
+                email: wallet.user?.email,
+                phone: wallet.user?.mobile ? `+${wallet.user.countryCode}${wallet.user.mobile}` : null,
+                avatar: wallet.user?.avatar
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error al obtener balance:', error);
+        res.status(500).json({
+            ok: false,
+            msg: 'Error al obtener información del balance',
+            error: error.message
+        });
+    }
+};/**
  * Obtener wallet de la vendedora autenticada
  */
 walletCtrl.getMyWallet = async (req = request, res = response) => {
     try {
-        const userId = req.usuario.id;
+        const userId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
 
         let wallet = await Wallet.findOne({ user: userId }).populate('user', 'firstName lastName email');
 
@@ -40,7 +94,7 @@ walletCtrl.getMyWallet = async (req = request, res = response) => {
  */
 walletCtrl.getMyMovements = async (req = request, res = response) => {
     try {
-        const userId = req.usuario.id;
+        const userId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
         const { page = 1, limit = 20, type, status } = req.query;
 
         // Buscar la wallet del usuario
@@ -173,7 +227,7 @@ walletCtrl.requestWithdrawal = async (req = request, res = response) => {
  */
 walletCtrl.updateWalletSettings = async (req = request, res = response) => {
     try {
-        const userId = req.usuario.id;
+        const userId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
         const { minimumWithdrawal, preferredPaymentMethod, bankInfo, notifications } = req.body;
 
         const wallet = await Wallet.findOne({ user: userId });
@@ -220,7 +274,7 @@ walletCtrl.updateWalletSettings = async (req = request, res = response) => {
  */
 walletCtrl.getWalletStats = async (req = request, res = response) => {
     try {
-        const userId = req.usuario.id;
+        const userId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
 
         const wallet = await Wallet.findOne({ user: userId });
         if (!wallet) {
@@ -345,7 +399,7 @@ walletCtrl.getAllWallets = async (req = request, res = response) => {
 walletCtrl.approveCommission = async (req = request, res = response) => {
     try {
         const { movementId } = req.params;
-        const adminId = req.usuario.id;
+        const adminId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
 
         const movement = await WalletMovements.findById(movementId);
         if (!movement) {
@@ -393,7 +447,7 @@ walletCtrl.processWithdrawal = async (req = request, res = response) => {
     try {
         const { movementId } = req.params;
         const { status, transactionId, notes } = req.body;
-        const adminId = req.usuario.id;
+        const adminId = req.authenticatedUser._id || req.authenticatedUser.uid || req.usuario?.id;
 
         const movement = await WalletMovements.findById(movementId);
         if (!movement) {

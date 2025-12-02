@@ -8,9 +8,7 @@ const CategorySchema = Schema({
     },
     isSubCatalogo: {
         type: Boolean,
-        default: false,
-        required: [true, 'El número es obligatorio'],
-        unique: true
+        default: false
     },
     estado: {
         type: Boolean,

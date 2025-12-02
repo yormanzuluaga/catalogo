@@ -1,5 +1,5 @@
 const { DateTime } = require('luxon');
-const {Schema, model} = require('mongoose')
+const { Schema, model } = require('mongoose')
 
 const ProductSchema = Schema({
     name: {
@@ -15,7 +15,7 @@ const ProductSchema = Schema({
         ref: 'Brand',
         required: [true, 'La marca es obligatoria']
     },
-    urlVideo : {
+    urlVideo: {
         type: String,
     },
     estado: {
@@ -23,15 +23,15 @@ const ProductSchema = Schema({
         default: true,
         required: true
     },
-    countryCodes: 
-    [
-        {
-            countryCode: {type: String},
-        },
-    ],
+    countryCodes:
+        [
+            {
+                countryCode: { type: String },
+            },
+        ],
     cities: [
         {
-            city: {type: String},
+            city: { type: String },
         },
     ],
     user: {
@@ -51,6 +51,13 @@ const ProductSchema = Schema({
         ref: 'SubCategory',
         required: false
     },
+    // 🆕 Filtros del producto (ej: "sombras", "labiales", "cremas")
+    filters: [
+        {
+            type: String,
+            trim: true
+        }
+    ],
     // Precios base (para productos sin variantes)
     basePrice: {
         type: Number,
@@ -60,7 +67,7 @@ const ProductSchema = Schema({
     pricing: {
         costPrice: {
             type: Number,
-            required: function() {
+            required: function () {
                 return this.productType === 'simple';
             },
             min: 0,
@@ -68,7 +75,7 @@ const ProductSchema = Schema({
         },
         salePrice: {
             type: Number,
-            required: function() {
+            required: function () {
                 return this.productType === 'simple';
             },
             min: 0,
@@ -102,7 +109,7 @@ const ProductSchema = Schema({
             min: 0
         }
     },
-    
+
     // Sistema de variantes para productos con diferentes opciones
     variants: [{
         // Identificador único de la variante
@@ -184,7 +191,7 @@ const ProductSchema = Schema({
             default: true
         }
     }],
-    
+
     // Campos para productos simples (sin variantes)
     simpleProduct: {
         pricing: {
@@ -236,21 +243,21 @@ const ProductSchema = Schema({
         },
         barcode: { type: String }
     },
-    
+
     // Descuentos generales del producto
     discount: [
         {
-          type: { type: String }, // ej: "percentage", "fixed"
-          value: { type: Number }, // valor del descuento
-          startDate: { type: Date },
-          endDate: { type: Date },
-          minQuantity: { type: Number, default: 1 }
+            type: { type: String }, // ej: "percentage", "fixed"
+            value: { type: Number }, // valor del descuento
+            startDate: { type: Date },
+            endDate: { type: Date },
+            minQuantity: { type: Number, default: 1 }
         },
     ],
-    
+
     deliveryTime: { type: String },
     description: { type: String },
-    
+
     // Detalles del producto
     details: {
         specifications: [{
@@ -263,7 +270,7 @@ const ProductSchema = Schema({
         instructions: { type: String }, // instrucciones de uso
         careInstructions: { type: String } // instrucciones de cuidado
     },
-    
+
     // Información de garantía
     warranty: {
         hasWarranty: {
@@ -272,7 +279,7 @@ const ProductSchema = Schema({
         },
         duration: {
             value: { type: Number }, // ej: 12, 24
-            unit: { 
+            unit: {
                 type: String,
                 enum: ['días', 'meses', 'años'],
                 default: 'meses'
@@ -292,38 +299,38 @@ const ProductSchema = Schema({
             address: { type: String }
         }
     },
-    
+
     available: { type: Boolean, default: true },
-    
+
     // Imágenes principales del producto
     img: { type: String }, // Imagen principal
     images: [{ type: String }], // Array de imágenes adicionales generales
-    
+
     // Tipo de producto
     productType: {
         type: String,
         enum: ['simple', 'variant'],
         default: 'simple'
     }
-},{
+}, {
     timestamps: true,
     versionKey: false
 });
 
 // Validación personalizada: debe tener category O subCategory
-ProductSchema.pre('validate', function(next) {
+ProductSchema.pre('validate', function (next) {
     if (!this.category && !this.subCategory) {
         const error = new Error('El producto debe tener una categoría o subcategoría');
         error.name = 'ValidationError';
         return next(error);
     }
-    
+
     if (this.category && this.subCategory) {
         const error = new Error('El producto no puede tener categoría y subcategoría al mismo tiempo');
         error.name = 'ValidationError';
         return next(error);
     }
-    
+
     // Validar que los SKUs de las variantes sean únicos
     if (this.productType === 'variant' && this.variants && this.variants.length > 0) {
         const skus = this.variants.map(v => v.sku);
@@ -334,87 +341,87 @@ ProductSchema.pre('validate', function(next) {
             return next(error);
         }
     }
-    
+
     next();
 });
 
 // Middleware para calcular automáticamente las ganancias
-ProductSchema.pre('save', function(next) {
+ProductSchema.pre('save', function (next) {
     // Calcular ganancia para productos simples
     if (this.productType === 'simple' && this.simpleProduct?.pricing) {
         const pricing = this.simpleProduct.pricing;
         if (pricing.costPrice && pricing.salePrice) {
             pricing.profit.amount = pricing.salePrice - pricing.costPrice;
-            pricing.profit.percentage = pricing.costPrice > 0 
+            pricing.profit.percentage = pricing.costPrice > 0
                 ? ((pricing.profit.amount / pricing.costPrice) * 100).toFixed(2)
                 : 0;
         }
     }
-    
+
     // Calcular ganancia para variantes
     if (this.productType === 'variant' && this.variants) {
         this.variants.forEach(variant => {
             if (variant.pricing?.costPrice && variant.pricing?.salePrice) {
                 variant.pricing.profit.amount = variant.pricing.salePrice - variant.pricing.costPrice;
-                variant.pricing.profit.percentage = variant.pricing.costPrice > 0 
+                variant.pricing.profit.percentage = variant.pricing.costPrice > 0
                     ? ((variant.pricing.profit.amount / variant.pricing.costPrice) * 100).toFixed(2)
                     : 0;
             }
         });
     }
-    
+
     // Calcular ganancia para el producto base (compatibilidad hacia atrás)
     if (this.pricing?.costPrice && this.pricing?.salePrice) {
         this.pricing.profit.amount = this.pricing.salePrice - this.pricing.costPrice;
-        this.pricing.profit.percentage = this.pricing.costPrice > 0 
+        this.pricing.profit.percentage = this.pricing.costPrice > 0
             ? ((this.pricing.profit.amount / this.pricing.costPrice) * 100).toFixed(2)
             : 0;
     }
-    
+
     next();
 });
 
 // Método para obtener el precio más bajo del producto
-ProductSchema.methods.getMinPrice = function() {
+ProductSchema.methods.getMinPrice = function () {
     if (this.productType === 'simple') {
         return this.simpleProduct?.pricing?.salePrice || this.pricing?.salePrice || this.basePrice;
     }
-    
+
     if (this.variants && this.variants.length > 0) {
         return Math.min(...this.variants.map(v => v.pricing?.salePrice || 0));
     }
-    
+
     return this.pricing?.salePrice || this.basePrice;
 };
 
 // Método para obtener el precio más alto del producto
-ProductSchema.methods.getMaxPrice = function() {
+ProductSchema.methods.getMaxPrice = function () {
     if (this.productType === 'simple') {
         return this.simpleProduct?.pricing?.salePrice || this.pricing?.salePrice || this.basePrice;
     }
-    
+
     if (this.variants && this.variants.length > 0) {
         return Math.max(...this.variants.map(v => v.pricing?.salePrice || 0));
     }
-    
+
     return this.pricing?.salePrice || this.basePrice;
 };
 
 // Método para obtener el stock total
-ProductSchema.methods.getTotalStock = function() {
+ProductSchema.methods.getTotalStock = function () {
     if (this.productType === 'simple') {
         return this.simpleProduct?.stock || 0;
     }
-    
+
     if (this.variants && this.variants.length > 0) {
         return this.variants.reduce((total, variant) => total + (variant.stock || 0), 0);
     }
-    
+
     return 0;
 };
 
 // Método para calcular la ganancia total del producto
-ProductSchema.methods.getTotalProfit = function() {
+ProductSchema.methods.getTotalProfit = function () {
     if (this.productType === 'simple') {
         const pricing = this.simpleProduct?.pricing || this.pricing;
         return {
@@ -422,37 +429,37 @@ ProductSchema.methods.getTotalProfit = function() {
             percentage: pricing?.profit?.percentage || 0
         };
     }
-    
+
     if (this.variants && this.variants.length > 0) {
-        const totalAmount = this.variants.reduce((total, variant) => 
+        const totalAmount = this.variants.reduce((total, variant) =>
             total + (variant.pricing?.profit?.amount || 0), 0);
-        const avgPercentage = this.variants.reduce((total, variant) => 
+        const avgPercentage = this.variants.reduce((total, variant) =>
             total + (variant.pricing?.profit?.percentage || 0), 0) / this.variants.length;
-        
+
         return {
             amount: totalAmount,
             percentage: avgPercentage || 0
         };
     }
-    
+
     return { amount: 0, percentage: 0 };
 };
 
 // Método para obtener los puntos que se pueden ganar
-ProductSchema.methods.getEarnablePoints = function() {
+ProductSchema.methods.getEarnablePoints = function () {
     if (this.productType === 'simple') {
         return this.simpleProduct?.points?.earnPoints || this.points?.earnPoints || 0;
     }
-    
+
     if (this.variants && this.variants.length > 0) {
         return Math.max(...this.variants.map(v => v.points?.earnPoints || 0));
     }
-    
+
     return this.points?.earnPoints || 0;
 };
 
 // Método para obtener variante por SKU
-ProductSchema.methods.getVariantBySku = function(sku) {
+ProductSchema.methods.getVariantBySku = function (sku) {
     if (this.productType === 'variant' && this.variants) {
         return this.variants.find(variant => variant.sku === sku);
     }
@@ -460,24 +467,24 @@ ProductSchema.methods.getVariantBySku = function(sku) {
 };
 
 // Método para obtener todas las opciones de colores disponibles
-ProductSchema.methods.getAvailableColors = function() {
+ProductSchema.methods.getAvailableColors = function () {
     if (this.productType === 'variant' && this.variants) {
         const colors = this.variants
             .filter(v => v.color && v.color.name && v.available)
             .map(v => v.color);
-        
+
         // Filtrar colores únicos por nombre
-        const uniqueColors = colors.filter((color, index, arr) => 
+        const uniqueColors = colors.filter((color, index, arr) =>
             arr.findIndex(c => c.name === color.name) === index
         );
-        
+
         return uniqueColors;
     }
     return [];
 };
 
 // Método para obtener todas las tallas disponibles
-ProductSchema.methods.getAvailableSizes = function() {
+ProductSchema.methods.getAvailableSizes = function () {
     if (this.productType === 'variant' && this.variants) {
         return [...new Set(this.variants
             .filter(v => v.size && v.available)
@@ -487,12 +494,12 @@ ProductSchema.methods.getAvailableSizes = function() {
 };
 
 // Método para obtener la categoría (directa o a través de subcategoría)
-ProductSchema.methods.getCategory = async function() {
+ProductSchema.methods.getCategory = async function () {
     if (this.category) {
         await this.populate('category', 'name');
         return this.category;
     }
-    
+
     if (this.subCategory) {
         await this.populate({
             path: 'subCategory',
@@ -504,21 +511,21 @@ ProductSchema.methods.getCategory = async function() {
         });
         return this.subCategory.category;
     }
-    
+
     return null;
 };
 
 // Método para determinar el tipo de clasificación
-ProductSchema.methods.getClassificationType = function() {
+ProductSchema.methods.getClassificationType = function () {
     if (this.category) return 'category';
     if (this.subCategory) return 'subCategory';
     return 'none';
 };
 
-ProductSchema.methods.toJSON = function() {
-    const {estado, _id, ...data } = this.toObject();
+ProductSchema.methods.toJSON = function () {
+    const { estado, _id, ...data } = this.toObject();
     data.uid = _id;
-    
+
     // Agregar información calculada
     data.priceRange = {
         min: this.getMinPrice(),
@@ -527,13 +534,13 @@ ProductSchema.methods.toJSON = function() {
     data.totalStock = this.getTotalStock();
     data.totalProfit = this.getTotalProfit();
     data.earnablePoints = this.getEarnablePoints();
-    
+
     if (this.productType === 'variant') {
         data.availableColors = this.getAvailableColors();
         data.availableSizes = this.getAvailableSizes();
         data.variantCount = this.variants ? this.variants.length : 0;
     }
-    
+
     // Información de garantía resumida
     if (this.warranty?.hasWarranty) {
         data.warrantyInfo = {
@@ -544,7 +551,7 @@ ProductSchema.methods.toJSON = function() {
     } else {
         data.warrantyInfo = { hasWarranty: false };
     }
-    
+
     return data;
 }
 

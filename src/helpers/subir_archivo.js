@@ -9,14 +9,28 @@ const helpersArchive = {}
  * @param {string} folder - Carpeta en S3
  * @returns {Promise<string>} URL del archivo subido
  */
-helpersArchive.subirArchivo = async (files, extensiones = ['png','jpg','jpeg','gif','webp'], folder = '') => {
-    
+helpersArchive.subirArchivo = async (files, extensiones = ['png', 'jpg', 'jpeg', 'gif', 'webp'], folder = '') => {
+
     return new Promise(async (resolve, reject) => {
         try {
+            console.log('📦 [HELPER] Files recibidos:', files ? Object.keys(files) : 'No files');
+
             const { archivo } = files;
-            
+
             if (!archivo) {
+                console.log('❌ [HELPER] No se encontró "archivo" en files');
                 return reject('No se encontró el archivo');
+            }
+
+            console.log('📄 [HELPER] Detalles del archivo:', {
+                name: archivo.name,
+                size: archivo.size,
+                mimetype: archivo.mimetype,
+                dataLength: archivo.data ? archivo.data.length : 0
+            });
+
+            if (archivo.size === 0) {
+                return reject('El archivo está vacío (0 bytes)');
             }
 
             const nombreCortado = archivo.name.split('.');
@@ -40,6 +54,7 @@ helpersArchive.subirArchivo = async (files, extensiones = ['png','jpg','jpeg','g
                 return reject('El archivo es demasiado grande. Máximo 5MB para imágenes');
             }
 
+            console.log('✅ [HELPER] Subiendo archivo a S3...');
             // Subir archivo a S3
             const fileUrl = await s3Service.uploadFile(
                 archivo.data,
@@ -48,9 +63,11 @@ helpersArchive.subirArchivo = async (files, extensiones = ['png','jpg','jpeg','g
                 archivo.mimetype
             );
 
+            console.log('✅ [HELPER] Archivo subido exitosamente:', fileUrl);
             resolve(fileUrl);
 
         } catch (error) {
+            console.error('❌ [HELPER] Error:', error);
             reject(`Error al subir archivo: ${error.message}`);
         }
     });
@@ -64,7 +81,7 @@ helpersArchive.subirArchivo = async (files, extensiones = ['png','jpg','jpeg','g
 helpersArchive.eliminarArchivo = async (fileUrl) => {
     try {
         if (!fileUrl) return true;
-        
+
         const s3Service = new S3Service();
         return await s3Service.deleteFile(fileUrl);
     } catch (error) {

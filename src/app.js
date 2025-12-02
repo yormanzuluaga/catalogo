@@ -23,6 +23,9 @@ const brand = require('./routes/brand.routes');
 const address = require('./routes/address.routes');
 const transaction = require('./routes/transaction.routes');
 const shippingOrder = require('./routes/shipping_order.routes'); // 🆕
+const transactionV2 = require('./routes/transaction_v2.routes'); // 🆕 V2
+const shippingOrderV2 = require('./routes/shipping_order_v2.routes'); // 🆕 V2
+const catalogV2 = require('./routes/catalog_v2.routes'); // 🆕 V2
 
 app.use(cors())
 
@@ -30,10 +33,11 @@ app.set('port', process.env.PORT || 3000)
 
 app.use(morgan('dev'))
 app.use(fileUpload({
-    useTempFiles: true,
-    tempFileDir: './uploads'
+    useTempFiles: false,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    abortOnLimit: true,
+    debug: false
 }))
-
 app.use(express.json())
 
 // Rutas de la API
@@ -53,5 +57,8 @@ app.use('/api/brands', brand)
 app.use('/api/addresses', address)
 app.use('/api/transactions', transaction)
 app.use('/api/shipping-orders', shippingOrder) // 🆕
+app.use('/api/transactions-v2', transactionV2) // 🆕 NUEVO - Limpio desde cero
+app.use('/api/shipping-orders-v2', shippingOrderV2) // 🆕 NUEVO - Limpio desde cero
+app.use('/api/catalogs-v2', catalogV2) // 🆕 NUEVO - Sistema de catálogos
 
 module.exports = app;

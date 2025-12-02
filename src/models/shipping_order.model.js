@@ -22,7 +22,13 @@ const ShippingOrderSchema = Schema({
         required: true
     },
 
-    // Cliente (comprador)
+    // 🆕 Usuario comprador (ID del usuario que compró)
+    buyer: {
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    // Cliente (comprador) - Información básica
     customer: {
         name: { type: String, required: true },
         email: { type: String, required: true },
@@ -86,13 +92,14 @@ const ShippingOrderSchema = Schema({
         type: String,
         enum: [
             'pending',        // Pendiente de preparar
+            'approved',       // Aprobado (pago confirmado)
             'preparing',      // Preparando el pedido
             'ready',          // Listo para enviar
             'in_transit',     // En camino
             'delivered',      // Entregado
             'cancelled'       // Cancelado
         ],
-        default: 'pending'
+        default: 'approved'   // Por defecto aprobado si el pago fue exitoso
     },
 
     // Tracking de la orden
@@ -117,6 +124,14 @@ const ShippingOrderSchema = Schema({
         name: String,
         trackingNumber: String,
         trackingUrl: String
+    },
+
+    // 🆕 Información de pago Wompi
+    payment: {
+        wompiTransactionId: String,
+        wompiReference: String,
+        paymentMethod: String,
+        paymentStatus: String
     },
 
     // Notas
@@ -144,17 +159,19 @@ ShippingOrderSchema.statics.generateOrderNumber = async function() {
 };
 
 // Método para actualizar estado
-ShippingOrderSchema.methods.updateStatus = async function(newStatus, notes = '') {
+ShippingOrderSchema.methods.updateStatus = async function(newStatus, notes = '', skipValidation = false) {
     const validTransitions = {
-        'pending': ['preparing', 'cancelled'],
-        'preparing': ['ready', 'cancelled'],
-        'ready': ['in_transit', 'cancelled'],
+        'pending': ['approved', 'preparing', 'cancelled', 'delivered'],
+        'approved': ['preparing', 'ready', 'in_transit', 'cancelled', 'delivered'], // 🆕 Desde aprobado puede ir a cualquier estado
+        'preparing': ['ready', 'cancelled', 'delivered'],
+        'ready': ['in_transit', 'cancelled', 'delivered'],
         'in_transit': ['delivered', 'cancelled'],
         'delivered': [],
         'cancelled': []
     };
 
-    if (!validTransitions[this.status].includes(newStatus)) {
+    // 🆕 Permitir saltar validación para casos especiales
+    if (!skipValidation && !validTransitions[this.status].includes(newStatus)) {
         throw new Error(`No se puede cambiar de "${this.status}" a "${newStatus}"`);
     }
 

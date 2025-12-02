@@ -6,15 +6,15 @@ class S3Service {
     constructor() {
         // Configurar AWS S3 Client v3
         this.s3Client = new S3Client({
-            region: process.env.AWS_REGION || 'us-east-1',
+            region: process.env.AWS_REGION || 'us-east-2',
             credentials: {
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID,
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
             },
         });
-        
+
         this.bucketName = process.env.AWS_S3_BUCKET_NAME;
-        
+
         if (!this.bucketName) {
             throw new Error('AWS_S3_BUCKET_NAME no está configurado en las variables de entorno');
         }
@@ -44,9 +44,9 @@ class S3Service {
             });
 
             const result = await this.s3Client.send(command);
-            
+
             // Construir la URL del archivo
-            const fileUrl = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+            const fileUrl = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`;
             return fileUrl;
         } catch (error) {
             console.error('Error al subir archivo a S3:', error);
@@ -63,7 +63,7 @@ class S3Service {
         try {
             // Extraer la key del archivo de la URL
             let key;
-            
+
             if (fileUrl.includes('amazonaws.com/')) {
                 // Si es una URL completa, extraer solo la parte después del bucket
                 const urlParts = fileUrl.split('amazonaws.com/');
@@ -121,17 +121,29 @@ class S3Service {
      */
     async getSignedUrl(fileUrl, expirationTime = 3600) {
         try {
-            const urlParts = fileUrl.split('/');
-            const bucketIndex = urlParts.findIndex(part => part === this.bucketName);
-            const key = urlParts.slice(bucketIndex + 1).join('/');
+            // Extraer la key del archivo de la URL
+            let key;
 
-            const command = new HeadObjectCommand({
+            if (fileUrl.includes('amazonaws.com/')) {
+                // Si es una URL completa, extraer solo la parte después del bucket
+                const urlParts = fileUrl.split('amazonaws.com/');
+                key = urlParts[1];
+            } else {
+                // Si ya es una key, usarla directamente
+                key = fileUrl;
+            }
+
+            if (!key) {
+                throw new Error('No se pudo extraer la key del archivo');
+            }
+
+            const command = new GetObjectCommand({
                 Bucket: this.bucketName,
                 Key: key
             });
 
-            return await getSignedUrl(this.s3Client, command, { 
-                expiresIn: expirationTime 
+            return await getSignedUrl(this.s3Client, command, {
+                expiresIn: expirationTime
             });
         } catch (error) {
             console.error('Error al generar URL firmada:', error);
@@ -176,9 +188,9 @@ class S3Service {
             });
 
             const result = await this.s3Client.send(command);
-            
+
             // Construir la URL del archivo
-            const fileUrl = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+            const fileUrl = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`;
             return fileUrl;
         } catch (error) {
             console.error('Error al subir archivo a S3:', error);
@@ -200,12 +212,12 @@ class S3Service {
                     Bucket: this.bucketName,
                     Key: key
                 });
-                return await getSignedUrl(this.s3Client, command, { 
-                    expiresIn: expirationTime 
+                return await getSignedUrl(this.s3Client, command, {
+                    expiresIn: expirationTime
                 });
             } else {
                 // URL pública (requiere política de bucket pública)
-                return `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+                return `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`;
             }
         } catch (error) {
             console.error('Error generando URL del archivo:', error);

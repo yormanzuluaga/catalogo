@@ -9,7 +9,12 @@ const {
     getShippingOrder,
     updateShippingStatus,
     confirmOrderDelivery,
-    getShippingOrdersSummary
+    getShippingOrdersSummary,
+    getMyOrders,                  // 🆕
+    getMyOrderDetail,             // 🆕
+    trackOrder,                   // 🆕
+    createOrderFromTransaction,   // 🆕
+    getWalletBalance              // 🆕 Nuevo endpoint de balance
 } = require('../controllers/shipping_order.controller');
 
 const router = Router();
@@ -22,6 +27,42 @@ router.get('/summary', [
     validarJWT,
     validarCampos
 ], getShippingOrdersSummary);
+
+/**
+ * 🆕 Obtener balance del wallet con comisiones pendientes
+ * GET /api/shipping-orders/balance
+ */
+router.get('/balance', [
+    validarJWT,
+    validarCampos
+], getWalletBalance);
+
+/**
+ * 🆕 Obtener los pedidos del cliente (comprador)
+ * GET /api/shipping-orders/my-orders
+ */
+router.get('/my-orders', [
+    validarJWT,
+    validarCampos
+], getMyOrders);
+
+/**
+ * 🆕 Tracking público por número de orden
+ * GET /api/shipping-orders/track/:orderNumber
+ */
+router.get('/track/:orderNumber', [
+    // Sin validarJWT para que sea público
+], trackOrder);
+
+/**
+ * 🆕 Obtener detalle de un pedido del cliente
+ * GET /api/shipping-orders/my-orders/:id
+ */
+router.get('/my-orders/:id', [
+    validarJWT,
+    check('id', 'No es un ID válido').isMongoId(),
+    validarCampos
+], getMyOrderDetail);
 
 /**
  * Obtener todas las órdenes de envío del vendedor
@@ -64,5 +105,16 @@ router.put('/:id/confirm-delivery', [
     check('id', 'No es un ID válido').isMongoId(),
     validarCampos
 ], confirmOrderDelivery);
+
+/**
+ * 🆕 Crear orden de envío desde una transacción existente
+ * POST /api/shipping-orders/create-from-transaction
+ */
+router.post('/create-from-transaction', [
+    validarJWT,
+    check('transactionId', 'El ID de la transacción es obligatorio').notEmpty(),
+    check('transactionId', 'No es un ID de transacción válido').isMongoId(),
+    validarCampos
+], createOrderFromTransaction);
 
 module.exports = router;

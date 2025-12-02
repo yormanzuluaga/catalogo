@@ -19,7 +19,7 @@ router.post('/', [
 // Mostrar imagen por ID y colección
 router.get('/:collection/:id', [
     check('id', 'El id debe ser de mongo').isMongoId(),
-    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products'])),
+    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products', 'categories', 'subcategories', 'brands'])),
     middleware.validarCampos
 ], uploadsCtrl.showImage);
 
@@ -28,7 +28,7 @@ router.put('/:collection/:id', [
     middlewareJWT.validarJWT,
     middlewareArchive.validarImagenSubir,
     check('id', 'El id debe ser de mongo').isMongoId(),
-    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products'])),
+    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products', 'categories', 'subcategories', 'brands'])),
     middleware.validarCampos
 ], uploadsCtrl.updateImage);
 
@@ -36,7 +36,7 @@ router.put('/:collection/:id', [
 router.delete('/:collection/:id', [
     middlewareJWT.validarJWT,
     check('id', 'El id debe ser de mongo').isMongoId(),
-    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products'])),
+    check('collection').custom(c => helpers.coleccionesPermitidas(c, ['users', 'products', 'categories', 'subcategories', 'brands'])),
     middleware.validarCampos
 ], uploadsCtrl.deleteImage);
 

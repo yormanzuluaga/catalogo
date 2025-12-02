@@ -51,15 +51,15 @@ const getTransaction = async (req = request, res = response) => {
         const { id } = req.params;
         const { uid } = req.authenticatedUser;
 
-        const transaction = await Transaction.findOne({ 
-            _id: id, 
-            user: uid, 
-            estado: true 
+        const transaction = await Transaction.findOne({
+            _id: id,
+            user: uid,
+            estado: true
         })
-        .populate('user', 'firstName lastName email phone')
-        .populate('shippingAddress')
-        .populate('items.product', 'name images brand model description')
-        .populate('commissions.processedBy', 'firstName lastName');
+            .populate('user', 'firstName lastName email phone')
+            .populate('shippingAddress')
+            .populate('items.product', 'name images brand model description')
+            .populate('commissions.processedBy', 'firstName lastName');
 
         if (!transaction) {
             return res.status(404).json({
@@ -87,7 +87,7 @@ const createTransaction = async (req = request, res = response) => {
                 msg: 'Usuario no autenticado'
             });
         }
-        
+
         const uid = req.authenticatedUser._id;
         const {
             items,
@@ -111,8 +111,8 @@ const createTransaction = async (req = request, res = response) => {
             metadata = {}
         } = req.body;
 
-        console.log('DEBUG - Wompi Payment Info:', { 
-            wompiTransactionId, 
+        console.log('DEBUG - Wompi Payment Info:', {
+            wompiTransactionId,
             wompiReference,
             paymentStatus,
             customerEmail
@@ -160,13 +160,13 @@ const createTransaction = async (req = request, res = response) => {
 
             // Calcular precio total del item
             const unitPrice = item.unitPrice || product.pricing?.salePrice || product.basePrice || 0;
-            
+
             if (unitPrice <= 0) {
                 return res.status(400).json({
                     msg: `Precio no válido para el producto ${product.name}`
                 });
             }
-            
+
             const totalPrice = unitPrice * item.quantity;
             subtotal += totalPrice;
 
@@ -174,7 +174,7 @@ const createTransaction = async (req = request, res = response) => {
             const costPrice = product.pricing?.costPrice || 0;
             let commission = 0;
             let margin = 0;
-            
+
             // ⭐ USAR LA COMISIÓN ENVIADA EN EL REQUEST SI EXISTE
             if (item.commission !== undefined && item.commission !== null) {
                 // Usar la comisión específica enviada desde el frontend
@@ -192,12 +192,12 @@ const createTransaction = async (req = request, res = response) => {
                 margin = unitPrice * 0.30; // Margen estimado del 30%
                 console.log(`🔢 Calculando comisión desde precio de venta: ${commission}`);
             }
-            
+
             const points = Math.floor(totalPrice / 1000); // 1 punto por cada $1000
 
             totalCommissions += commission * item.quantity;
             totalPoints += points;
-            
+
             console.log(`💰 Item: ${product.name}`, {
                 unitPrice,
                 costPrice: costPrice || 'no configurado',
@@ -231,7 +231,7 @@ const createTransaction = async (req = request, res = response) => {
                         image: item.variations.color.image || ''
                     };
                 }
-                
+
                 // Talla/Size
                 if (item.variations.size) {
                     variations.size = {
@@ -239,7 +239,7 @@ const createTransaction = async (req = request, res = response) => {
                         code: item.variations.size.code || ''
                     };
                 }
-                
+
                 // Medidas
                 if (item.variations.measurements) {
                     variations.measurements = {
@@ -250,7 +250,7 @@ const createTransaction = async (req = request, res = response) => {
                         unit: item.variations.measurements.unit || 'cm'
                     };
                 }
-                
+
                 // Material
                 if (item.variations.material) {
                     variations.material = {
@@ -258,7 +258,7 @@ const createTransaction = async (req = request, res = response) => {
                         code: item.variations.material.code || ''
                     };
                 }
-                
+
                 // Opciones personalizadas
                 if (item.variations.customOptions) {
                     variations.customOptions = item.variations.customOptions;
@@ -295,10 +295,10 @@ const createTransaction = async (req = request, res = response) => {
 
         // Validar que la referencia de Wompi no exista (evitar duplicados)
         if (wompiReference) {
-            const existingTransaction = await Transaction.findOne({ 
-                referenceNumber: wompiReference 
+            const existingTransaction = await Transaction.findOne({
+                referenceNumber: wompiReference
             });
-            
+
             if (existingTransaction) {
                 return res.status(400).json({
                     msg: 'Esta transacción de Wompi ya fue procesada anteriormente',
@@ -312,10 +312,10 @@ const createTransaction = async (req = request, res = response) => {
 
         // Validar que el wompiTransactionId no exista (doble validación)
         if (wompiTransactionId) {
-            const existingWompiTx = await Transaction.findOne({ 
-                'payment.wompiTransactionId': wompiTransactionId 
+            const existingWompiTx = await Transaction.findOne({
+                'payment.wompiTransactionId': wompiTransactionId
             });
-            
+
             if (existingWompiTx) {
                 return res.status(400).json({
                     msg: 'Esta transacción de Wompi ya fue registrada',
@@ -335,7 +335,7 @@ const createTransaction = async (req = request, res = response) => {
         // Determinar el estado de la orden según el estado del pago
         let orderStatus = 'created';
         let paymentStatusEnum = 'pending';
-        
+
         if (paymentStatus === 'approved') {
             orderStatus = 'paid';
             paymentStatusEnum = 'approved';
@@ -366,7 +366,7 @@ const createTransaction = async (req = request, res = response) => {
                 type: paymentMethod,
                 installments: installments || 1
             };
-            
+
             if (cardBrand) paymentInfo.paymentMethod.cardBrand = cardBrand;
             if (cardLastFour) paymentInfo.paymentMethod.cardLastFour = cardLastFour;
             if (bankName) paymentInfo.paymentMethod.bankName = bankName;
@@ -382,7 +382,7 @@ const createTransaction = async (req = request, res = response) => {
         const trackingInfo = {
             createdAt: new Date()
         };
-        
+
         if (paymentStatus === 'approved') {
             trackingInfo.paymentConfirmedAt = new Date();
         } else if (paymentStatus === 'declined') {
@@ -437,10 +437,10 @@ const createTransaction = async (req = request, res = response) => {
         if (paymentStatus === 'approved' && totalCommissions > 0) {
             try {
                 console.log('💰 Registrando comisiones en wallet...');
-                
+
                 // Buscar o crear wallet
                 let wallet = await Wallet.findOne({ user: uid, estado: true });
-                
+
                 if (!wallet) {
                     console.log('📝 Creando nueva wallet para usuario');
                     wallet = new Wallet({
@@ -491,21 +491,43 @@ const createTransaction = async (req = request, res = response) => {
             }
         }
 
-        // 🆕 CREAR ORDEN DE ENVÍO AUTOMÁTICAMENTE (SOLO SI PAGO APROBADO)
+        // 🆕 CREAR ORDEN DE ENVÍO AUTOMÁTICAMENTE
         let shippingOrder = null;
-        if (paymentStatus === 'approved') {
+        let shippingOrderError = null;
+
+        console.log('🔍 Creando orden de envío automáticamente...');
+        console.log('   paymentStatus:', paymentStatus);
+        console.log('   shippingAddressId:', shippingAddressId);
+        console.log('   uid:', uid);
+        console.log('   transaction._id:', transaction._id);
+
+        // VALIDACIÓN PREVIA
+        if (!shippingAddressId) {
+            console.error('❌ ERROR: shippingAddressId es requerido para crear orden de envío');
+            console.log('⏭️  Saltando creación de orden de envío');
+            shippingOrderError = 'No se proporcionó dirección de envío';
+        } else {
+            let shippingOrderData = null; // Declarar fuera del try para usar en catch
+
             try {
                 console.log('📦 Creando orden de envío...');
+                console.log('   Transaction ID:', transaction._id);
+                console.log('   Seller (uid):', uid);
+                console.log('   ShippingAddress:', shippingAddressId);
+                console.log('   User name:', user.firstName, user.lastName);
+                console.log('   User email:', customerEmail || user.email);
 
                 const orderNumber = await ShippingOrder.generateOrderNumber();
+                console.log('   ✅ Order Number generado:', orderNumber);
 
-                const shippingOrderData = {
+                shippingOrderData = {
                     orderNumber,
                     transaction: transaction._id,
                     seller: uid,
+                    buyer: uid, // 🆕 Guardar también el ID del comprador
                     customer: {
                         name: user.firstName + ' ' + user.lastName,
-                        email: customerEmail,
+                        email: customerEmail || user.email,
                         phone: user.phone || ''
                     },
                     shippingAddress: shippingAddressId,
@@ -522,9 +544,15 @@ const createTransaction = async (req = request, res = response) => {
                         points: totalPoints,
                         status: 'pending'
                     },
-                    status: 'pending',
+                    status: paymentStatus === 'approved' ? 'approved' : 'pending',
                     tracking: {
                         estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 días
+                    },
+                    payment: {
+                        wompiTransactionId: wompiTransactionId || '',
+                        wompiReference: wompiReference || '',
+                        paymentMethod: paymentMethod || 'wompi',
+                        paymentStatus: paymentStatus || 'pending'
                     },
                     notes: {
                         customerNotes: customerNotes || '',
@@ -533,22 +561,118 @@ const createTransaction = async (req = request, res = response) => {
                     estado: true
                 };
 
+                console.log('   📋 Datos de la orden preparados');
+                console.log('   Items count:', shippingOrderData.items.length);
+                console.log('   Commission amount:', shippingOrderData.commission.amount);
+                console.log('   Commission points:', shippingOrderData.commission.points);
+
+                console.log('   🔨 Creando instancia del modelo...');
                 shippingOrder = new ShippingOrder(shippingOrderData);
+
+                console.log('   💾 Guardando en base de datos...');
                 await shippingOrder.save();
 
-                console.log('✅ Orden de envío creada:', orderNumber);
+                // 🆕 Populate para tener los datos completos en la respuesta
+                await shippingOrder.populate([
+                    { path: 'seller', select: 'firstName lastName email' },
+                    { path: 'shippingAddress' },
+                    { path: 'items.product', select: 'name images' }
+                ]);
+
+                console.log('✅✅✅ Orden de envío creada exitosamente! ✅✅✅');
+                console.log('   Order ID:', shippingOrder._id);
+                console.log('   Order Number:', orderNumber);
+                console.log('   Status:', shippingOrder.status);
+                console.log('   📤 Orden lista para enviar en respuesta');
 
             } catch (shippingError) {
-                console.error('⚠️ Error al crear orden de envío:', shippingError);
-                // No fallar la transacción si hay error creando la orden
+                console.error('');
+                console.error('╔════════════════════════════════════════════════╗');
+                console.error('║  ❌ ERROR AL CREAR ORDEN DE ENVÍO ❌          ║');
+                console.error('╚════════════════════════════════════════════════╝');
+                console.error('');
+                console.error('📛 Tipo de error:', shippingError.name);
+                console.error('📛 Mensaje:', shippingError.message);
+
+                if (shippingError.name === 'ValidationError') {
+                    console.error('');
+                    console.error('🔍 ERRORES DE VALIDACIÓN:');
+                    Object.keys(shippingError.errors || {}).forEach(field => {
+                        console.error(`   ❌ Campo: ${field}`);
+                        console.error(`      Mensaje: ${shippingError.errors[field].message}`);
+                        console.error(`      Tipo: ${shippingError.errors[field].kind}`);
+                        console.error(`      Valor: ${shippingError.errors[field].value}`);
+                        console.error('');
+                    });
+                }
+
+                console.error('📋 Stack trace:');
+                console.error(shippingError.stack);
+                console.error('');
+
+                if (shippingOrderData) {
+                    console.error('📦 Datos que intentamos guardar:');
+                    console.error(JSON.stringify({
+                        orderNumber: shippingOrderData.orderNumber,
+                        transaction: shippingOrderData.transaction,
+                        seller: shippingOrderData.seller,
+                        buyer: shippingOrderData.buyer,
+                        shippingAddress: shippingOrderData.shippingAddress,
+                        itemsCount: shippingOrderData.items?.length || 0,
+                        commission: shippingOrderData.commission,
+                        status: shippingOrderData.status
+                    }, null, 2));
+                } else {
+                    console.error('📦 shippingOrderData era null cuando ocurrió el error');
+                }
+                console.error('');
+                console.error('════════════════════════════════════════════════');
+                console.error('');
+
+                // Guardar el error para informar al cliente
+                shippingOrderError = {
+                    type: shippingError.name,
+                    message: shippingError.message,
+                    details: shippingError.name === 'ValidationError'
+                        ? Object.keys(shippingError.errors || {}).map(field => ({
+                            field,
+                            message: shippingError.errors[field].message,
+                            value: shippingError.errors[field].value
+                        }))
+                        : null
+                };
             }
         }
 
-        res.status(201).json({
+        // 🆕 LOG: Verificar el objeto shippingOrder antes de responder
+        console.log('');
+        console.log('📤 Preparando respuesta al cliente...');
+        console.log('   shippingOrder existe?', !!shippingOrder);
+        if (shippingOrder) {
+            console.log('   shippingOrder._id:', shippingOrder._id);
+            console.log('   shippingOrder.orderNumber:', shippingOrder.orderNumber);
+            console.log('   shippingOrder.status:', shippingOrder.status);
+            console.log('   shippingOrder.commission:', shippingOrder.commission);
+            console.log('   📦 Objeto shippingOrder completo:');
+            console.log(JSON.stringify({
+                _id: shippingOrder._id,
+                orderNumber: shippingOrder.orderNumber,
+                status: shippingOrder.status,
+                commission: shippingOrder.commission,
+                items: shippingOrder.items?.length || 0
+            }, null, 2));
+        }
+        if (shippingOrderError) {
+            console.log('   shippingOrderError:', shippingOrderError);
+        }
+        console.log('');
+
+        // 🆕 CONSTRUIR RESPUESTA COMPLETA
+        const responseData = {
             success: true,
-            msg: paymentStatus === 'approved' 
-                ? '¡Compra exitosa! Tu pedido ha sido confirmado' 
-                : 'Transacción registrada',
+            msg: shippingOrder
+                ? '¡Compra exitosa! Tu pedido ha sido confirmado'
+                : 'Transacción registrada' + (shippingOrderError ? ' (Orden de envío no creada)' : ''),
             transaction: {
                 _id: transaction._id,
                 transactionNumber: transaction.transactionNumber,
@@ -580,7 +704,7 @@ const createTransaction = async (req = request, res = response) => {
                 status: 'pending_delivery',
                 message: 'Las comisiones se depositarán en tu wallet cuando confirmes la entrega',
                 willBeDepositedWhen: 'delivery_confirmed',
-                howToConfirm: shippingOrder 
+                howToConfirm: shippingOrder
                     ? `PUT /api/shipping-orders/${shippingOrder._id}/confirm-delivery`
                     : `PUT /api/transactions/${transaction._id}/confirm-delivery`
             } : null,
@@ -589,15 +713,33 @@ const createTransaction = async (req = request, res = response) => {
                 _id: shippingOrder._id,
                 orderNumber: shippingOrder.orderNumber,
                 status: shippingOrder.status,
+                seller: shippingOrder.seller,
+                buyer: shippingOrder.buyer,
+                customer: shippingOrder.customer,
+                shippingAddress: shippingOrder.shippingAddress,
+                items: shippingOrder.items,
                 commission: {
-                    amount: shippingOrder.commission.amount,
-                    points: shippingOrder.commission.points,
-                    status: shippingOrder.commission.status
+                    amount: shippingOrder.commission?.amount || 0,
+                    points: shippingOrder.commission?.points || 0,
+                    status: shippingOrder.commission?.status || 'pending'
                 },
-                estimatedDelivery: shippingOrder.tracking.estimatedDelivery,
+                tracking: {
+                    estimatedDelivery: shippingOrder.tracking?.estimatedDelivery,
+                    preparedAt: shippingOrder.tracking?.preparedAt,
+                    shippedAt: shippingOrder.tracking?.shippedAt,
+                    deliveredAt: shippingOrder.tracking?.deliveredAt
+                },
+                payment: shippingOrder.payment,
+                notes: shippingOrder.notes,
+                createdAt: shippingOrder.createdAt,
                 message: `Orden de envío creada: ${shippingOrder.orderNumber}`,
                 viewOrderUrl: `/api/shipping-orders/${shippingOrder._id}`
-            } : null,
+            } : (shippingOrderError ? {
+                created: false,
+                error: shippingOrderError,
+                message: 'La orden de envío no pudo ser creada. La transacción se registró correctamente.',
+                helpText: 'Puedes crear la orden manualmente desde el panel de administración.'
+            } : null),
             // 🆕 DESGLOSE POR PRODUCTO
             itemsBreakdown: processedItems.map(item => ({
                 productName: item.name,
@@ -608,7 +750,25 @@ const createTransaction = async (req = request, res = response) => {
                 yourPoints: item.points,
                 margin: item.margin * item.quantity
             }))
-        });
+        };
+
+        // 🔥 LOG FINAL: Mostrar la respuesta completa que se enviará
+        console.log('');
+        console.log('📨 RESPUESTA FINAL AL CLIENTE:');
+        console.log('=====================================');
+        console.log('✅ success:', responseData.success);
+        console.log('📝 msg:', responseData.msg);
+        console.log('📦 transaction._id:', responseData.transaction._id);
+        console.log('📦 shippingOrder existe?:', !!responseData.shippingOrder);
+        if (responseData.shippingOrder) {
+            console.log('   ✅ shippingOrder._id:', responseData.shippingOrder._id);
+            console.log('   ✅ shippingOrder.orderNumber:', responseData.shippingOrder.orderNumber);
+            console.log('   ✅ shippingOrder.status:', responseData.shippingOrder.status);
+        }
+        console.log('=====================================');
+        console.log('');
+
+        res.status(201).json(responseData);
 
     } catch (error) {
         console.error('Error al crear transacción:', error);
@@ -619,12 +779,12 @@ const createTransaction = async (req = request, res = response) => {
             stack: error.stack,
             errors: error.errors
         });
-        
+
         // Error de clave duplicada de MongoDB
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern || {})[0];
             const value = error.keyValue ? error.keyValue[field] : 'desconocido';
-            
+
             if (field === 'referenceNumber') {
                 return res.status(400).json({
                     msg: 'Esta referencia de Wompi ya fue utilizada',
@@ -646,7 +806,7 @@ const createTransaction = async (req = request, res = response) => {
                 });
             }
         }
-        
+
         // Si es un error de validación de Mongoose, dar más detalles
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(err => err.message);
@@ -656,7 +816,7 @@ const createTransaction = async (req = request, res = response) => {
                 details: error.errors
             });
         }
-        
+
         res.status(500).json({
             msg: 'Error interno del servidor al crear la transacción',
             error: error.message,
@@ -723,7 +883,7 @@ const updateTransactionStatus = async (req = request, res = response) => {
             if (status === 'approved') {
                 transaction.payment.paymentDate = new Date();
                 await transaction.updateOrderStatus('paid');
-                
+
                 // Actualizar wallet cuando el pago sea aprobado
                 try {
                     await WalletService.approveTransaction({
@@ -736,7 +896,7 @@ const updateTransactionStatus = async (req = request, res = response) => {
                 }
             } else if (status === 'declined') {
                 await transaction.updateOrderStatus('cancelled', 'Pago rechazado');
-                
+
                 // Cancelar en wallet si el pago es rechazado
                 try {
                     await WalletService.cancelTransaction({
@@ -747,7 +907,7 @@ const updateTransactionStatus = async (req = request, res = response) => {
                     console.error('Error al cancelar en wallet:', walletError);
                 }
             }
-            
+
             await transaction.save();
         }
 
@@ -817,51 +977,51 @@ const getTransactionsSummary = async (req = request, res = response) => {
         const { uid } = req.authenticatedUser;
 
         // Estadísticas básicas
-        const totalTransactions = await Transaction.countDocuments({ 
-            user: uid, 
-            estado: true 
+        const totalTransactions = await Transaction.countDocuments({
+            user: uid,
+            estado: true
         });
 
-        const completedTransactions = await Transaction.countDocuments({ 
-            user: uid, 
+        const completedTransactions = await Transaction.countDocuments({
+            user: uid,
             orderStatus: 'delivered',
-            estado: true 
+            estado: true
         });
 
-        const pendingTransactions = await Transaction.countDocuments({ 
-            user: uid, 
+        const pendingTransactions = await Transaction.countDocuments({
+            user: uid,
             orderStatus: { $in: ['created', 'payment_pending', 'paid', 'confirmed', 'processing', 'shipped'] },
-            estado: true 
+            estado: true
         });
 
         // Calcular total gastado
         const totalSpentResult = await Transaction.aggregate([
-            { 
-                $match: { 
-                    user: uid, 
+            {
+                $match: {
+                    user: uid,
                     orderStatus: { $ne: 'cancelled' },
                     'payment.status': 'approved',
-                    estado: true 
-                } 
+                    estado: true
+                }
             },
-            { 
-                $group: { 
-                    _id: null, 
-                    totalSpent: { $sum: '$totalAmount' } 
-                } 
+            {
+                $group: {
+                    _id: null,
+                    totalSpent: { $sum: '$totalAmount' }
+                }
             }
         ]);
 
         const totalSpent = totalSpentResult[0]?.totalSpent || 0;
 
         // Obtener últimas transacciones
-        const recentTransactions = await Transaction.find({ 
-            user: uid, 
-            estado: true 
+        const recentTransactions = await Transaction.find({
+            user: uid,
+            estado: true
         })
-        .populate('items.product', 'name images')
-        .sort({ createdAt: -1 })
-        .limit(5);
+            .populate('items.product', 'name images')
+            .sort({ createdAt: -1 })
+            .limit(5);
 
         res.json({
             summary: {
@@ -886,13 +1046,15 @@ const wompiWebhook = async (req = request, res = response) => {
     try {
         const { event, data } = req.body;
 
+        console.log('🔔 Webhook recibido de Wompi:', event);
+
         // Buscar la transacción por referencia de Wompi
         const transaction = await Transaction.findOne({
             $or: [
                 { 'payment.wompiTransactionId': data.id },
                 { 'payment.wompiReference': data.reference }
             ]
-        });
+        }).populate('user shippingAddress');
 
         if (!transaction) {
             return res.status(404).json({
@@ -900,8 +1062,110 @@ const wompiWebhook = async (req = request, res = response) => {
             });
         }
 
+        console.log('✅ Transacción encontrada:', transaction.transactionNumber);
+
         // Procesar el evento
         await transaction.processWompiWebhook(event, data);
+
+        // 🆕 Si el pago fue aprobado, crear ShippingOrder automáticamente
+        if (event === 'transaction.updated' && data.status === 'APPROVED') {
+            console.log('💳 Pago aprobado, verificando si existe ShippingOrder...');
+
+            // Verificar si ya existe un ShippingOrder para esta transacción
+            const existingOrder = await ShippingOrder.findOne({
+                transaction: transaction._id,
+                estado: true
+            });
+
+            if (!existingOrder) {
+                console.log('📦 Creando ShippingOrder automáticamente...');
+
+                try {
+                    const orderNumber = await ShippingOrder.generateOrderNumber();
+
+                    // Calcular comisiones desde los items de la transacción
+                    let totalCommissions = 0;
+                    let totalPoints = 0;
+
+                    transaction.items.forEach(item => {
+                        // Usar la comisión guardada en el item
+                        const itemCommission = item.commission || 0;
+                        const itemPoints = item.points || 0;
+                        totalCommissions += itemCommission * item.quantity;
+                        totalPoints += itemPoints;
+                    });
+
+                    console.log('💰 Comisiones calculadas:', { totalCommissions, totalPoints });
+
+                    const user = transaction.user;
+
+                    const shippingOrderData = {
+                        orderNumber,
+                        transaction: transaction._id,
+                        seller: transaction.user._id,
+                        buyer: transaction.user._id,
+                        customer: {
+                            name: user.firstName + ' ' + user.lastName,
+                            email: user.email,
+                            phone: user.mobile || user.phone || ''
+                        },
+                        shippingAddress: transaction.shippingAddress._id,
+                        items: transaction.items.map(item => ({
+                            product: item.product,
+                            name: item.name,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            totalPrice: item.totalPrice,
+                            variations: item.variations
+                        })),
+                        commission: {
+                            amount: totalCommissions,
+                            points: totalPoints,
+                            status: 'pending'
+                        },
+                        status: 'approved',
+                        tracking: {
+                            estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+                        },
+                        payment: {
+                            wompiTransactionId: transaction.payment.wompiTransactionId,
+                            wompiReference: transaction.payment.wompiReference,
+                            paymentMethod: transaction.payment.paymentMethod,
+                            paymentStatus: 'approved'
+                        },
+                        estado: true
+                    };
+
+                    const shippingOrder = new ShippingOrder(shippingOrderData);
+                    await shippingOrder.save();
+
+                    console.log('✅ ShippingOrder creado:', shippingOrder.orderNumber);
+
+                    // 🆕 Actualizar wallet con balance pendiente
+                    let wallet = await Wallet.findOne({ user: transaction.user._id, estado: true });
+
+                    if (!wallet) {
+                        wallet = new Wallet({
+                            user: transaction.user._id,
+                            balance: 0,
+                            pendingBalance: 0,
+                            points: 0,
+                            estado: true
+                        });
+                    }
+
+                    wallet.pendingBalance = (wallet.pendingBalance || 0) + totalCommissions;
+                    await wallet.save();
+
+                    console.log('💰 Wallet actualizado - Pending balance:', wallet.pendingBalance);
+
+                } catch (shippingError) {
+                    console.error('❌ Error al crear ShippingOrder desde webhook:', shippingError);
+                }
+            } else {
+                console.log('ℹ️  ShippingOrder ya existe para esta transacción');
+            }
+        }
 
         res.json({
             msg: 'Webhook procesado exitosamente'
@@ -935,8 +1199,8 @@ const confirmDelivery = async (req = request, res = response) => {
         });
 
         if (!transaction) {
-            return res.status(404).json({ 
-                msg: 'Transacción no encontrada' 
+            return res.status(404).json({
+                msg: 'Transacción no encontrada'
             });
         }
 
@@ -973,7 +1237,7 @@ const confirmDelivery = async (req = request, res = response) => {
         transaction.orderStatus = 'delivered';
         transaction.tracking.deliveredAt = new Date();
         transaction.commissions.commissionStatus = 'approved';
-        
+
         if (deliveryNotes) {
             transaction.notes.deliveryNotes = deliveryNotes;
         }
@@ -989,7 +1253,7 @@ const confirmDelivery = async (req = request, res = response) => {
         // DEPOSITAR EN WALLET
         // ====================================
         let wallet = await Wallet.findOne({ user: uid, estado: true });
-        
+
         if (!wallet) {
             console.log('📝 Creando wallet para usuario');
             wallet = new Wallet({
@@ -1052,17 +1316,17 @@ const confirmDelivery = async (req = request, res = response) => {
 
         // Actualizar el movimiento anterior a completado
         await WalletMovements.updateOne(
-            { 
+            {
                 sale: transaction._id,
                 type: 'commission_earned',
                 status: 'pending'
             },
-            { 
-                $set: { 
+            {
+                $set: {
                     status: 'completed',
                     'metadata.completedAt': new Date(),
                     'metadata.deliveredAt': transaction.tracking.deliveredAt
-                } 
+                }
             }
         );
 
@@ -1122,20 +1386,20 @@ const getEarningsSummary = async (req = request, res = response) => {
         }).select('transactionNumber orderStatus commissions createdAt tracking');
 
         // Calcular estadísticas
-        const pending = transactions.filter(t => 
-            t.orderStatus !== 'delivered' && 
+        const pending = transactions.filter(t =>
+            t.orderStatus !== 'delivered' &&
             t.commissions?.commissionStatus !== 'approved'
         );
 
-        const delivered = transactions.filter(t => 
+        const delivered = transactions.filter(t =>
             t.orderStatus === 'delivered'
         );
 
-        const totalPendingCommissions = pending.reduce((sum, t) => 
+        const totalPendingCommissions = pending.reduce((sum, t) =>
             sum + (t.commissions?.totalCommission || 0), 0
         );
 
-        const totalDeliveredCommissions = delivered.reduce((sum, t) => 
+        const totalDeliveredCommissions = delivered.reduce((sum, t) =>
             sum + (t.commissions?.totalCommission || 0), 0
         );
 
@@ -1168,9 +1432,9 @@ const getEarningsSummary = async (req = request, res = response) => {
 
     } catch (error) {
         console.error('Error al obtener resumen de ganancias:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             msg: 'Error al obtener resumen de ganancias',
-            error: error.message 
+            error: error.message
         });
     }
 };

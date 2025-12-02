@@ -1,12 +1,12 @@
 const { Router } = require('express')
 const { check } = require('express-validator')
 
-const middleware  = require('../middlewares/validar_campos')
-const middlewareJWT  = require('../middlewares/validar_jwt')
-const middlewareRoles  = require('../middlewares/validar_roles')
+const middleware = require('../middlewares/validar_campos')
+const middlewareJWT = require('../middlewares/validar_jwt')
+const middlewareRoles = require('../middlewares/validar_roles')
 const helpers = require('../helpers/db_validators')
 
-const productsCtrl  = require('../controllers/products.controller')
+const productsCtrl = require('../controllers/products.controller')
 
 const router = Router();
 
@@ -31,38 +31,45 @@ router.get('/brands/stats', [
 
 // ========== RUTAS DE PRODUCTOS ==========
 
-//visualizar productos por subcategoría (default)
-router.get('/subcategory/:id',[
+// 🆕 Filtrar productos por filter (ej: "sombras", "labiales")
+router.get('/filter/:filterName', [
     middlewareJWT.validarJWT,
-    check('id','No es un id de Mongo').isMongoId(),
+    check('filterName', 'El filtro es obligatorio').not().isEmpty(),
     middleware.validarCampos,
-],productsCtrl.getAllproducts)
+], productsCtrl.getProductsByFilter);
+
+//visualizar productos por subcategoría (default)
+router.get('/subcategory/:id', [
+    middlewareJWT.validarJWT,
+    check('id', 'No es un id de Mongo').isMongoId(),
+    middleware.validarCampos,
+], productsCtrl.getAllproducts)
 
 //visualizar productos por categoría directa
-router.get('/category/:id',[
+router.get('/category/:id', [
     middlewareJWT.validarJWT,
-    check('id','No es un id de Mongo').isMongoId(),
+    check('id', 'No es un id de Mongo').isMongoId(),
     middleware.validarCampos,
-],(req, res, next) => {
+], (req, res, next) => {
     req.query.type = 'category';
     next();
 }, productsCtrl.getAllproducts)
 
 //visualizar toda la productos (mantener compatibilidad)
-router.get('/:id',[
+router.get('/:id', [
     middlewareJWT.validarJWT,
-],productsCtrl.getAllproducts)
+], productsCtrl.getAllproducts)
 
 //visualiar una productos
-router.get('/one/:id',[
+router.get('/one/:id', [
     middlewareJWT.validarJWT,
-    check('id','No es un id de Mongo').isMongoId(),
+    check('id', 'No es un id de Mongo').isMongoId(),
     middleware.validarCampos,
     check('id').custom(helpers.productExistsId)
 ], productsCtrl.getproduct)
 
 //crear una productos
-router.post('/',[
+router.post('/', [
     middlewareJWT.validarJWT,
     middlewareRoles.hasRole('ADMIN_ROLE'),
     check('name', 'El nombre es obligatorio').not().isEmpty(),
@@ -83,10 +90,10 @@ router.post('/',[
     // check('category').optional().custom(helpers.categoryExistsId),
     // check('subCategory').optional().custom(helpers.subCategoryExistsId),
     middleware.validarCampos,
-],productsCtrl.createrproduct )
+], productsCtrl.createrproduct)
 
 //actualizar una productos
-router.put('/:id',[
+router.put('/:id', [
     middlewareJWT.validarJWT,
     //check('category', 'La categoria es obligatorio').isMongoId(),
     check('brand').optional().isMongoId().withMessage('La marca debe ser un ID válido'),
@@ -96,26 +103,26 @@ router.put('/:id',[
 ], productsCtrl.updateproduct)
 
 //Borrar una productos
-router.delete('/:id',[
+router.delete('/:id', [
     middlewareJWT.validarJWT,
-  //  middlewareRoles.hasRole('ADMIN_ROLE'),
-    check('id','No es un id de Mongo').isMongoId(),
+    //  middlewareRoles.hasRole('ADMIN_ROLE'),
+    check('id', 'No es un id de Mongo').isMongoId(),
     check('id').custom(helpers.productExistsId),
     middleware.validarCampos,
-],productsCtrl.deletedproduct)
+], productsCtrl.deletedproduct)
 
 // Agregar imágenes a un producto existente
-router.post('/images/:id',[
+router.post('/images/:id', [
     middlewareJWT.validarJWT,
-    check('id','No es un id de Mongo').isMongoId(),
+    check('id', 'No es un id de Mongo').isMongoId(),
     check('id').custom(helpers.productExistsId),
     middleware.validarCampos,
 ], productsCtrl.addProductImages)
 
 // Eliminar una imagen específica del producto
-router.delete('/images/:id',[
+router.delete('/images/:id', [
     middlewareJWT.validarJWT,
-    check('id','No es un id de Mongo').isMongoId(),
+    check('id', 'No es un id de Mongo').isMongoId(),
     check('id').custom(helpers.productExistsId),
     check('imageUrl', 'URL de imagen requerida').not().isEmpty(),
     check('type', 'Tipo de imagen requerido').isIn(['main', 'additional']),

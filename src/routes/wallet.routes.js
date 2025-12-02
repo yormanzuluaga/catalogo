@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { check } = require('express-validator');
 
 const walletCtrl = require('../controllers/wallet.controller');
+const walletWithdrawalCtrl = require('../controllers/wallet_withdrawal.controller');
 const middleware = require('../middlewares/validar_campos');
 const middlewareJWT = require('../middlewares/validar_jwt');
 const middlewareRoles = require('../middlewares/validar_roles');
@@ -9,6 +10,14 @@ const middlewareRoles = require('../middlewares/validar_roles');
 const router = Router();
 
 // ============= RUTAS PARA VENDEDORAS =============
+
+/**
+ * 💰 Obtener balance completo con toda la información
+ * GET /api/wallet/balance
+ */
+router.get('/balance', [
+    middlewareJWT.validarJWT
+], walletCtrl.getCompleteBalance);
 
 /**
  * Obtener mi wallet
@@ -26,20 +35,53 @@ router.get('/my-movements', [
     middlewareJWT.validarJWT
 ], walletCtrl.getMyMovements);
 
+// ============= RETIROS SEGUROS CON VERIFICACIÓN SMS =============
+
 /**
- * Solicitar retiro
- * POST /api/wallet/withdrawal
+ * 🔐 Paso 1: Solicitar código de verificación para retiro
+ * POST /api/wallet/withdrawal/request-code
  */
-router.post('/withdrawal', [
+router.post('/withdrawal/request-code', [
     middlewareJWT.validarJWT,
     check('amount', 'El monto es requerido y debe ser un número').isNumeric(),
     check('amount', 'El monto debe ser mayor a 0').isFloat({ min: 0.01 }),
     check('withdrawalMethod', 'El método de retiro es requerido').not().isEmpty(),
     check('withdrawalMethod', 'Método de retiro no válido').isIn([
-        'bank_transfer', 'nequi', 'daviplata', 'bancolombia', 'other'
+        'bancolombia', 'nequi', 'daviplata', 'bank_transfer'
     ]),
+    check('accountInfo', 'La información de la cuenta es requerida').isObject(),
     middleware.validarCampos
-], walletCtrl.requestWithdrawal);
+], walletWithdrawalCtrl.requestWithdrawalCode);
+
+/**
+ * 🔐 Paso 2: Verificar código y procesar retiro
+ * POST /api/wallet/withdrawal/verify-code
+ */
+router.post('/withdrawal/verify-code', [
+    middlewareJWT.validarJWT,
+    check('codeId', 'El ID del código es requerido').isMongoId(),
+    check('code', 'El código de verificación es requerido').not().isEmpty(),
+    check('code', 'El código debe tener 6 dígitos').isLength({ min: 6, max: 6 }),
+    middleware.validarCampos
+], walletWithdrawalCtrl.verifyCodeAndWithdraw);
+
+/**
+ * 📋 Obtener estado de un retiro
+ * GET /api/wallet/withdrawal/:id
+ */
+router.get('/withdrawal/:id', [
+    middlewareJWT.validarJWT,
+    check('id', 'ID de retiro debe ser un ID válido de MongoDB').isMongoId(),
+    middleware.validarCampos
+], walletWithdrawalCtrl.getWithdrawalStatus);
+
+/**
+ * 📜 Obtener historial de retiros
+ * GET /api/wallet/withdrawal/history
+ */
+router.get('/withdrawal/history', [
+    middlewareJWT.validarJWT
+], walletWithdrawalCtrl.getWithdrawalHistory);
 
 /**
  * Actualizar configuración de wallet

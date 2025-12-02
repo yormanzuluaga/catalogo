@@ -5,9 +5,67 @@ const S3Service = require('../services/s3.service')
 const productsCtrl = {}
 const s3Service = new S3Service()
 
-productsCtrl.getAllproducts = async (req = request, res = response) => {
+/**
+ * 🆕 OBTENER PRODUCTOS POR FILTROS
+ * GET /api/products/filter/:filterName
+ * Query params: limit, from
+ */
+productsCtrl.getProductsByFilter = async (req = request, res = response) => {
     try {
         const { limit = 10, from = 0 } = req.query;
+        const { filterName } = req.params;
+
+        console.log('🔍 Buscando productos con filter:', filterName);
+
+        const query = {
+            estado: true,
+            filters: filterName // Busca en el array de filters
+        };
+
+        const [total, products] = await Promise.all([
+            Product.countDocuments(query).lean(),
+            Product.find(query)
+                .populate('user', 'firstName')
+                .populate('brand', 'name logo')
+                .populate({
+                    path: 'subCategory',
+                    select: 'name category',
+                    populate: {
+                        path: 'category',
+                        select: 'name'
+                    }
+                })
+                .populate('category', 'name')
+                .skip(Number(from))
+                .limit(Number(limit))
+                .lean()
+        ]);
+
+        res.json({
+            success: true,
+            total,
+            products,
+            filter: filterName,
+            pagination: {
+                limit: Number(limit),
+                from: Number(from),
+                hasMore: (Number(from) + Number(limit)) < total
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo productos por filter:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+productsCtrl.getAllproducts = async (req = request, res = response) => {
+    try {
+        const { limit = 10, from = 0, filter } = req.query;
         const { id } = req.params;
         const { type = 'subCategory' } = req.query; // 'category' o 'subCategory'
 
@@ -21,6 +79,11 @@ productsCtrl.getAllproducts = async (req = request, res = response) => {
         } else {
             query.subCategory = id;
             populateField = 'subCategory';
+        }
+
+        // 🆕 Filtrar por filter si se proporciona
+        if (filter) {
+            query.filters = filter;
         }
 
         const [allProduct, product] = await Promise.all([
@@ -41,9 +104,22 @@ productsCtrl.getAllproducts = async (req = request, res = response) => {
                 .lean()
         ]);
 
+        // 🆕 Extraer lista única de filters de todos los productos
+        const allFilters = product.reduce((acc, prod) => {
+            if (prod.filters && Array.isArray(prod.filters)) {
+                prod.filters.forEach(filter => {
+                    if (!acc.includes(filter)) {
+                        acc.push(filter);
+                    }
+                });
+            }
+            return acc;
+        }, []);
+
         res.json({
             allProduct,
             product,
+            availableFilters: allFilters.sort(), // Lista única de filters ordenada
             type: type // Indicar qué tipo de filtro se usó
         });
 
@@ -59,7 +135,7 @@ productsCtrl.getAllproducts = async (req = request, res = response) => {
 productsCtrl.getproduct = async (req = request, res = response) => {
     try {
         const { id } = req.params;
-        
+
         let product = await Product.findById(id)
             .populate('user', 'firstName')
             .populate('brand', 'name logo')
@@ -96,6 +172,11 @@ productsCtrl.getproduct = async (req = request, res = response) => {
         // Agregar información sobre el tipo de clasificación
         product.classificationType = product.category ? 'category' : 'subCategory';
 
+        // Asegurar que filters siempre esté presente (vacío si no existe)
+        if (!product.filters) {
+            product.filters = [];
+        }
+
         res.json(product);
 
     } catch (error) {
@@ -125,9 +206,9 @@ productsCtrl.createrproduct = async (req = request, res = response) => {
         }
 
         // Verificar si el producto ya existe
-        const ProductDB = await Product.findOne({name: body.name})
+        const ProductDB = await Product.findOne({ name: body.name })
 
-        if( ProductDB ) {
+        if (ProductDB) {
             return res.status(400).json({
                 msg: `El producto ${ProductDB.name}, ya existe`
             })
@@ -200,7 +281,7 @@ productsCtrl.updateproduct = async (req = request, res = response) => {
         const { id } = req.params;
         const { estado, user, ...data } = req.body;
 
-        if ( data.name ) {
+        if (data.name) {
             data.name = data.name.toUpperCase();
         }
 
@@ -221,7 +302,7 @@ productsCtrl.updateproduct = async (req = request, res = response) => {
                 if (currentProduct.img) {
                     await s3Service.deleteFile(currentProduct.img);
                 }
-                
+
                 // Subir nueva imagen
                 const imageUrl = await s3Service.uploadFile(req.files.img, 'products');
                 data.img = imageUrl;
@@ -312,7 +393,7 @@ productsCtrl.deletedproduct = async (req = request, res = response) => {
         }
 
         // Marcar el producto como eliminado
-        const deletedProduct = await Product.findByIdAndUpdate(id, {estado: false}, {new: true});
+        const deletedProduct = await Product.findByIdAndUpdate(id, { estado: false }, { new: true });
 
         res.json({
             msg: 'Producto eliminado exitosamente',
@@ -380,7 +461,7 @@ productsCtrl.addProductImages = async (req = request, res = response) => {
                     const imageUrl = await s3Service.uploadFileFromExpressUpload(image, 'products');
                     imageUrls.push(imageUrl);
                 }
-                
+
                 // Combinar con imágenes existentes
                 const existingImages = product.images || [];
                 updateData.images = [...existingImages, ...imageUrls];
@@ -599,7 +680,7 @@ productsCtrl.createProductWithVariants = async (req = request, res = response) =
         }
 
         // Verificar si el producto ya existe
-        const ProductDB = await Product.findOne({name: body.name});
+        const ProductDB = await Product.findOne({ name: body.name });
         if (ProductDB) {
             return res.status(400).json({
                 msg: `El producto ${ProductDB.name}, ya existe`
@@ -624,7 +705,7 @@ productsCtrl.createProductWithVariants = async (req = request, res = response) =
                         msg: 'Cada variante debe tener SKU'
                     });
                 }
-                
+
                 // Validar estructura de precios
                 if (!variant.pricing || !variant.pricing.salePrice || !variant.pricing.costPrice) {
                     return res.status(400).json({
@@ -858,20 +939,20 @@ productsCtrl.updateVariant = async (req = request, res = response) => {
         if (color !== undefined) product.variants[variantIndex].color = color;
         if (size !== undefined) product.variants[variantIndex].size = size;
         if (measurements !== undefined) product.variants[variantIndex].measurements = measurements;
-        
+
         // Actualizar pricing
         if (pricing) {
             if (pricing.costPrice !== undefined) product.variants[variantIndex].pricing.costPrice = pricing.costPrice;
             if (pricing.salePrice !== undefined) product.variants[variantIndex].pricing.salePrice = pricing.salePrice;
             if (pricing.commission !== undefined) product.variants[variantIndex].pricing.commission = pricing.commission;
         }
-        
+
         // Actualizar points
         if (points) {
             if (points.earnPoints !== undefined) product.variants[variantIndex].points.earnPoints = points.earnPoints;
             if (points.redeemPoints !== undefined) product.variants[variantIndex].points.redeemPoints = points.redeemPoints;
         }
-        
+
         if (stock !== undefined) product.variants[variantIndex].stock = stock;
         if (barcode !== undefined) product.variants[variantIndex].barcode = barcode;
         if (available !== undefined) product.variants[variantIndex].available = available;
@@ -981,7 +1062,7 @@ productsCtrl.searchProductsByVariants = async (req = request, res = response) =>
         const { color, size, minPrice, maxPrice, category, subCategory, hasDiscount, minPoints, limit = 10, from = 0 } = req.query;
 
         let query = { estado: true };
-        
+
         // Filtros de categoría
         if (category) query.category = category;
         if (subCategory) query.subCategory = subCategory;
@@ -998,7 +1079,7 @@ productsCtrl.searchProductsByVariants = async (req = request, res = response) =>
                 variantFilters['variants.pricing.salePrice'] = { $lte: Number(maxPrice) };
             }
         }
-        
+
         // Filtro por puntos mínimos
         if (minPoints) {
             variantFilters['variants.points.earnPoints'] = { $gte: Number(minPoints) };
@@ -1029,7 +1110,7 @@ productsCtrl.searchProductsByVariants = async (req = request, res = response) =>
             let minProductPrice = 0, maxProductPrice = 0;
             let totalStock = 0;
             let maxEarnPoints = 0;
-            
+
             if (product.productType === 'variant' && product.variants) {
                 const prices = product.variants.map(v => v.pricing?.salePrice || 0);
                 const points = product.variants.map(v => v.points?.earnPoints || 0);
@@ -1087,7 +1168,7 @@ productsCtrl.getProductsForSellers = async (req = request, res = response) => {
         const sellerId = req.user._id; // ID de la vendedora
 
         let query = { estado: true, available: true };
-        
+
         // Filtros opcionales
         if (category) query.category = category;
         if (subCategory) query.subCategory = subCategory;
@@ -1120,12 +1201,12 @@ productsCtrl.getProductsForSellers = async (req = request, res = response) => {
             // Calcular información según el tipo de producto
             if (product.productType === 'variant' && product.variants && product.variants.length > 0) {
                 const availableVariants = product.variants.filter(v => v.available);
-                
+
                 if (availableVariants.length > 0) {
                     const prices = availableVariants.map(v => v.pricing?.salePrice || 0);
                     const commissions = availableVariants.map(v => v.pricing?.commission || 0);
                     const points = availableVariants.map(v => v.points?.earnPoints || 0);
-                    
+
                     sellerInfo.priceRange = {
                         min: Math.min(...prices),
                         max: Math.max(...prices)
@@ -1144,7 +1225,7 @@ productsCtrl.getProductsForSellers = async (req = request, res = response) => {
             } else if (product.productType === 'simple') {
                 const pricing = product.simpleProduct?.pricing || product.pricing;
                 const points = product.simpleProduct?.points || product.points;
-                
+
                 sellerInfo.priceRange = {
                     min: pricing?.salePrice || 0,
                     max: pricing?.salePrice || 0
@@ -1253,12 +1334,12 @@ productsCtrl.getProductDetailsForSellers = async (req = request, res = response)
             details: product.details,
             warranty: product.warranty,
             productType: product.productType,
-            
+
             // Información de precios y comisiones
             pricing: {},
             variants: [],
             discounts: product.discount || [],
-            
+
             // Información calculada
             totalStock: 0,
             maxCommission: 0,
@@ -1269,7 +1350,7 @@ productsCtrl.getProductDetailsForSellers = async (req = request, res = response)
         if (product.productType === 'variant' && product.variants) {
             // Filtrar solo variantes disponibles
             const availableVariants = product.variants.filter(v => v.available);
-            
+
             sellerProductInfo.variants = availableVariants.map(variant => ({
                 sku: variant.sku,
                 color: variant.color,
@@ -1278,7 +1359,7 @@ productsCtrl.getProductDetailsForSellers = async (req = request, res = response)
                 images: variant.images,
                 barcode: variant.barcode,
                 stock: variant.stock,
-                
+
                 // Información de precios para vendedoras
                 pricing: {
                     costPrice: variant.pricing?.costPrice || 0,
@@ -1299,11 +1380,11 @@ productsCtrl.getProductDetailsForSellers = async (req = request, res = response)
             sellerProductInfo.totalStock = availableVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
             sellerProductInfo.maxCommission = Math.max(...availableVariants.map(v => v.pricing?.commission || 0));
             sellerProductInfo.maxPoints = Math.max(...availableVariants.map(v => v.points?.earnPoints || 0));
-            
+
         } else if (product.productType === 'simple') {
             const pricing = product.simpleProduct?.pricing || product.pricing;
             const points = product.simpleProduct?.points || product.points;
-            
+
             sellerProductInfo.pricing = {
                 costPrice: pricing?.costPrice || 0,
                 salePrice: pricing?.salePrice || 0,
@@ -1313,12 +1394,12 @@ productsCtrl.getProductDetailsForSellers = async (req = request, res = response)
                 },
                 commission: pricing?.commission || 0
             };
-            
+
             sellerProductInfo.points = {
                 earnPoints: points?.earnPoints || 0,
                 redeemPoints: points?.redeemPoints || 0
             };
-            
+
             sellerProductInfo.totalStock = product.simpleProduct?.stock || 0;
             sellerProductInfo.maxCommission = pricing?.commission || 0;
             sellerProductInfo.maxPoints = points?.earnPoints || 0;
@@ -1375,7 +1456,7 @@ productsCtrl.calculateSaleCommission = async (req = request, res = response) => 
         // Determinar precios según el tipo de producto
         if (product.productType === 'variant' && variantSku) {
             const variant = product.variants.find(v => v.sku === variantSku && v.available);
-            
+
             if (!variant) {
                 return res.status(404).json({
                     msg: 'Variante no encontrada o no disponible'
@@ -1386,11 +1467,11 @@ productsCtrl.calculateSaleCommission = async (req = request, res = response) => 
             saleInfo.unitCommission = variant.pricing?.commission || 0;
             saleInfo.unitPoints = variant.points?.earnPoints || 0;
             saleInfo.availableStock = variant.stock || 0;
-            
+
         } else if (product.productType === 'simple') {
             const pricing = product.simpleProduct?.pricing || product.pricing;
             const points = product.simpleProduct?.points || product.points;
-            
+
             saleInfo.unitPrice = pricing?.salePrice || 0;
             saleInfo.unitCommission = pricing?.commission || 0;
             saleInfo.unitPoints = points?.earnPoints || 0;
@@ -1417,7 +1498,7 @@ productsCtrl.calculateSaleCommission = async (req = request, res = response) => 
                 const end = d.endDate ? new Date(d.endDate) : new Date('2099-12-31');
                 const validTime = now >= start && now <= end;
                 const validQuantity = saleInfo.quantity >= (d.minQuantity || 1);
-                
+
                 return validTime && validQuantity;
             });
 
@@ -1470,9 +1551,9 @@ productsCtrl.calculateSaleCommission = async (req = request, res = response) => 
 productsCtrl.getAllBrands = async (req = request, res = response) => {
     try {
         // Obtener todas las marcas únicas de productos activos
-        const brands = await Product.distinct('brand', { 
+        const brands = await Product.distinct('brand', {
             estado: true,
-            brand: { $exists: true, $ne: null, $ne: '' } 
+            brand: { $exists: true, $ne: null, $ne: '' }
         });
 
         // Contar productos por marca
@@ -1482,7 +1563,7 @@ productsCtrl.getAllBrands = async (req = request, res = response) => {
                     estado: true,
                     brand: brand
                 });
-                
+
                 return {
                     name: brand,
                     productCount
@@ -1512,13 +1593,15 @@ productsCtrl.getAllBrands = async (req = request, res = response) => {
 // Obtener productos por marca
 productsCtrl.getProductsByBrand = async (req = request, res = response) => {
     try {
-        const { brand } = req.params;
-        const { limit = 10, from = 0, category, subCategory } = req.query;
+        const { brand } = req.params; // Puede ser ID de marca o nombre
+        const { limit = 10, from = 0, category, subCategory, filter } = req.query;
 
-        // Construir query base
-        let query = { 
-            estado: true, 
-            brand: { $regex: new RegExp(`^${brand}$`, 'i') } // Case insensitive
+        console.log('🔍 Buscando productos por marca:', brand);
+
+        // Construir query base - buscar por ID de marca
+        let query = {
+            estado: true,
+            brand: brand // Usar directamente el ID de marca
         };
 
         // Filtros adicionales opcionales
@@ -1528,11 +1611,15 @@ productsCtrl.getProductsByBrand = async (req = request, res = response) => {
         if (subCategory) {
             query.subCategory = subCategory;
         }
+        if (filter) {
+            query.filters = filter;
+        }
 
         const [totalProducts, products] = await Promise.all([
             Product.countDocuments(query).lean(),
             Product.find(query)
                 .populate('user', 'firstName')
+                .populate('brand', 'name logo') // Popular información de la marca
                 .populate('category', 'name')
                 .populate({
                     path: 'subCategory',
@@ -1550,24 +1637,40 @@ productsCtrl.getProductsByBrand = async (req = request, res = response) => {
 
         if (products.length === 0) {
             return res.status(404).json({
-                ok: false,
-                msg: `No se encontraron productos para la marca: ${brand}`
+                success: false,
+                msg: `No se encontraron productos para esta marca`
             });
         }
 
+        // 🆕 Extraer lista única de filters
+        const allFilters = products.reduce((acc, prod) => {
+            if (prod.filters && Array.isArray(prod.filters)) {
+                prod.filters.forEach(filter => {
+                    if (!acc.includes(filter)) {
+                        acc.push(filter);
+                    }
+                });
+            }
+            return acc;
+        }, []);
+
         res.json({
-            ok: true,
-            brand: brand,
+            success: true,
+            brand: products[0]?.brand || { _id: brand },
             totalProducts,
             from: Number(from),
             limit: Number(limit),
-            products
+            availableFilters: allFilters.sort(),
+            products,
+            pagination: {
+                hasMore: (Number(from) + Number(limit)) < totalProducts
+            }
         });
 
     } catch (error) {
         console.error('Error obteniendo productos por marca:', error);
         res.status(500).json({
-            ok: false,
+            success: false,
             msg: 'Error interno del servidor',
             error: error.message
         });
