@@ -69,17 +69,21 @@ const createTransactionComplete = async (req = request, res = response) => {
 
         // Validar que wompiReference no exista (evitar duplicados)
         if (wompiReference) {
+            console.log('🔍 Verificando wompiReference:', wompiReference);
             const existingTransaction = await Transaction.findOne({
                 referenceNumber: wompiReference
             });
 
             if (existingTransaction) {
+                console.log('⚠️ Transacción duplicada detectada:', existingTransaction.transactionNumber);
                 return res.status(400).json({
                     success: false,
                     msg: 'Esta transacción de Wompi ya fue procesada anteriormente',
-                    existingTransactionNumber: existingTransaction.transactionNumber
+                    existingTransactionNumber: existingTransaction.transactionNumber,
+                    wompiReference: wompiReference
                 });
             }
+            console.log('✅ wompiReference es único, continuando...');
         }
 
         // ========================================
@@ -92,6 +96,8 @@ const createTransactionComplete = async (req = request, res = response) => {
         let totalPoints = 0;
 
         for (const item of items) {
+            console.log(`🔍 Procesando item: ${item.productId}, Tipo: ${item.productType}`);
+            
             // Verificar que el producto existe
             const product = await Product.findOne({
                 _id: item.productId,
@@ -99,11 +105,13 @@ const createTransactionComplete = async (req = request, res = response) => {
             });
 
             if (!product) {
+                console.log(`❌ Producto no encontrado: ${item.productId}`);
                 return res.status(400).json({
                     success: false,
                     msg: `Producto con ID ${item.productId} no encontrado`
                 });
             }
+            console.log(`✅ Producto encontrado: ${product.name}`);
 
             // Obtener precio
             const unitPrice = item.unitPrice || product.pricing?.salePrice || product.basePrice || 0;

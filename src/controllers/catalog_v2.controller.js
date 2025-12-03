@@ -269,16 +269,16 @@ const getCatalogDetail = async (req = request, res = response) => {
             owner: uid,
             isActive: true
         })
-        .populate({
-            path: 'products.product',
-            select: 'name images pricing brand category subCategory filters',
-            populate: [
-                { path: 'brand', select: 'name logo' },
-                { path: 'category', select: 'name' },
-                { path: 'subCategory', select: 'name' }
-            ]
-        })
-        .lean();
+            .populate({
+                path: 'products.product',
+                select: 'name images pricing brand category subCategory filters',
+                populate: [
+                    { path: 'brand', select: 'name logo' },
+                    { path: 'category', select: 'name' },
+                    { path: 'subCategory', select: 'name' }
+                ]
+            })
+            .lean();
 
         if (!catalog) {
             return res.status(404).json({
