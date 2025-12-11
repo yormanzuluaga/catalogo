@@ -97,7 +97,7 @@ const createTransactionComplete = async (req = request, res = response) => {
 
         for (const item of items) {
             console.log(`🔍 Procesando item: ${item.productId}, Tipo: ${item.productType}`);
-            
+
             // Verificar que el producto existe
             const product = await Product.findOne({
                 _id: item.productId,

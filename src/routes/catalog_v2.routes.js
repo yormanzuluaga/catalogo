@@ -16,6 +16,9 @@ const {
 
 const router = Router();
 
+// ⚠️ IMPORTANTE: Las rutas específicas deben ir ANTES que las rutas con parámetros
+// para evitar que Express las interprete incorrectamente
+
 /**
  * 🆕 CREAR CATÁLOGO
  * POST /api/catalogs-v2/create
@@ -34,6 +37,28 @@ router.post('/create', [
 router.get('/my-catalogs', [
     validarJWT
 ], getMyCatalogs);
+
+/**
+ * 🆕 AGREGAR PRODUCTOS A CATÁLOGO
+ * POST /api/catalogs-v2/:id/products
+ */
+router.post('/:id/products', [
+    validarJWT,
+    check('id', 'No es un ID válido').isMongoId(),
+    check('products', 'Debes proporcionar un array de productos').isArray(),
+    validarCampos
+], addProductsToCatalog);
+
+/**
+ * 🆕 ELIMINAR PRODUCTO DEL CATÁLOGO
+ * DELETE /api/catalogs-v2/:id/products/:productId
+ */
+router.delete('/:id/products/:productId', [
+    validarJWT,
+    check('id', 'No es un ID válido').isMongoId(),
+    check('productId', 'No es un ID válido').isMongoId(),
+    validarCampos
+], removeProductFromCatalog);
 
 /**
  * 🆕 OBTENER DETALLE DE CATÁLOGO
@@ -64,27 +89,5 @@ router.delete('/:id', [
     check('id', 'No es un ID válido').isMongoId(),
     validarCampos
 ], deleteCatalog);
-
-/**
- * 🆕 AGREGAR PRODUCTOS A CATÁLOGO
- * POST /api/catalogs-v2/:id/products
- */
-router.post('/:id/products', [
-    validarJWT,
-    check('id', 'No es un ID válido').isMongoId(),
-    check('products', 'Debes proporcionar un array de productos').isArray(),
-    validarCampos
-], addProductsToCatalog);
-
-/**
- * 🆕 ELIMINAR PRODUCTO DEL CATÁLOGO
- * DELETE /api/catalogs-v2/:id/products/:productId
- */
-router.delete('/:id/products/:productId', [
-    validarJWT,
-    check('id', 'No es un ID válido').isMongoId(),
-    check('productId', 'No es un ID válido').isMongoId(),
-    validarCampos
-], removeProductFromCatalog);
 
 module.exports = router;

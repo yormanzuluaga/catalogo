@@ -56,6 +56,15 @@ const createCatalog = async (req = request, res = response) => {
                     continue; // Saltar productos que no existen
                 }
 
+                // Validar que customPrice no sea menor al precio original
+                const originalPrice = product.pricing?.salePrice || product.basePrice || 0;
+                if (item.customPrice && item.customPrice < originalPrice) {
+                    return res.status(400).json({
+                        success: false,
+                        msg: `El precio personalizado ($${item.customPrice}) del producto "${product.name}" no puede ser menor al precio original ($${originalPrice})`
+                    });
+                }
+
                 catalog.products.push({
                     product: item.productId,
                     catalogConfig: {
@@ -159,6 +168,15 @@ const addProductsToCatalog = async (req = request, res = response) => {
             if (!product) {
                 skipped++;
                 continue;
+            }
+
+            // Validar que customPrice no sea menor al precio original
+            const originalPrice = product.pricing?.salePrice || product.basePrice || 0;
+            if (item.customPrice && item.customPrice < originalPrice) {
+                return res.status(400).json({
+                    success: false,
+                    msg: `El precio personalizado ($${item.customPrice}) del producto "${product.name}" no puede ser menor al precio original ($${originalPrice})`
+                });
             }
 
             // Verificar si ya existe en el catálogo
@@ -311,7 +329,10 @@ const removeProductFromCatalog = async (req = request, res = response) => {
         const uid = req.authenticatedUser._id;
         const { id, productId } = req.params;
 
-        console.log('🗑️ Eliminando producto del catálogo:', productId);
+        console.log('🗑️ Eliminando producto del catálogo');
+        console.log('   Catálogo ID:', id);
+        console.log('   Producto ID:', productId);
+        console.log('   Usuario:', uid);
 
         const catalog = await Catalog.findOne({
             _id: id,
@@ -320,11 +341,14 @@ const removeProductFromCatalog = async (req = request, res = response) => {
         });
 
         if (!catalog) {
+            console.log('❌ Catálogo no encontrado o no pertenece al usuario');
             return res.status(404).json({
                 success: false,
-                msg: 'Catálogo no encontrado'
+                msg: 'Catálogo no encontrado o no tienes permisos para modificarlo'
             });
         }
+
+        console.log('✅ Catálogo encontrado:', catalog.name);
 
         const initialLength = catalog.products.length;
         catalog.products = catalog.products.filter(
