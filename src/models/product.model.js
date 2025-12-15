@@ -95,6 +95,17 @@ const ProductSchema = Schema({
             type: Number,
             default: 0,
             min: 0
+        },
+        // 🆕 Comisiones especiales
+        wholesaleCommission: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        specialClientCommission: {
+            type: Number,
+            default: 0,
+            min: 0
         }
     },
     points: {
@@ -160,6 +171,17 @@ const ProductSchema = Schema({
                 }
             },
             commission: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
+            // 🆕 Comisiones especiales por variante
+            wholesaleCommission: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
+            specialClientCommission: {
                 type: Number,
                 default: 0,
                 min: 0

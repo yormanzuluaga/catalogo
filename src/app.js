@@ -27,6 +27,7 @@ const transactionV2 = require('./routes/transaction_v2.routes'); // 🆕 V2
 const shippingOrderV2 = require('./routes/shipping_order_v2.routes'); // 🆕 V2
 const catalogV2 = require('./routes/catalog_v2.routes'); // 🆕 V2
 const banner = require('./routes/banner.routes'); // 🆕 Banners promocionales
+const withdrawal = require('./routes/withdrawal.routes'); // 🆕 Retiros de balance
 
 app.use(cors())
 
@@ -62,5 +63,6 @@ app.use('/api/transactions-v2', transactionV2) // 🆕 NUEVO - Limpio desde cero
 app.use('/api/shipping-orders-v2', shippingOrderV2) // 🆕 NUEVO - Limpio desde cero
 app.use('/api/catalogs-v2', catalogV2) // 🆕 NUEVO - Sistema de catálogos
 app.use('/api/banners', banner) // 🆕 NUEVO - Carousel promocional
+app.use('/api/withdrawals', withdrawal) // 🆕 NUEVO - Sistema de retiros
 
 module.exports = app;

@@ -3,18 +3,46 @@ const { check } = require('express-validator');
 
 const { validarCampos } = require('../middlewares/validar_campos');
 const { validarJWT } = require('../middlewares/validar_jwt');
+const { isAdminRole } = require('../middlewares/validar_roles');
 
 const {
     getMyOrders,
     updateOrderStatus,
     getOrderDetail,
     getWalletBalance,
-    getPendingOrders  // 🆕 Nuevo endpoint
+    getPendingOrders,
+    adminGetAllOrders,      // 🔐 ADMIN
+    adminUpdateOrderStatus  // 🔐 ADMIN
 } = require('../controllers/shipping_order_v2.controller');
 
 const router = Router();
 
 // ⚠️ IMPORTANTE: Las rutas específicas deben ir ANTES de las rutas con parámetros dinámicos
+
+/**
+ * 🔐 ADMIN: OBTENER TODAS LAS ÓRDENES DE TODOS LOS USUARIOS
+ * GET /api/shipping-orders-v2/admin/all-orders
+ */
+router.get('/admin/all-orders', [
+    validarJWT,
+    isAdminRole,
+    validarCampos
+], adminGetAllOrders);
+
+/**
+ * 🔐 ADMIN: ACTUALIZAR ESTADO DE CUALQUIER ORDEN
+ * PUT /api/shipping-orders-v2/admin/:id/status
+ */
+router.put('/admin/:id/status', [
+    validarJWT,
+    isAdminRole,
+    check('id', 'No es un ID válido').isMongoId(),
+    check('status', 'El estado es obligatorio').notEmpty(),
+    check('status', 'Estado no válido').isIn([
+        'pending', 'approved', 'preparing', 'ready', 'in_transit', 'delivered', 'cancelled'
+    ]),
+    validarCampos
+], adminUpdateOrderStatus);
 
 /**
  * 🆕 OBTENER BALANCE DEL WALLET
@@ -52,17 +80,20 @@ router.get('/:id', [
 ], getOrderDetail);
 
 /**
- * 🆕 ACTUALIZAR ESTADO DE ORDEN
+ * ⚠️ DEPRECADO: Actualizar estado de orden (ahora solo admin puede hacerlo)
  * PUT /api/shipping-orders-v2/:id/status
+ * 
+ * Este endpoint ahora requiere rol de administrador
  */
 router.put('/:id/status', [
     validarJWT,
+    isAdminRole,  // 🔐 Ahora requiere ser admin
     check('id', 'No es un ID válido').isMongoId(),
     check('status', 'El estado es obligatorio').notEmpty(),
     check('status', 'Estado no válido').isIn([
         'pending', 'approved', 'preparing', 'ready', 'in_transit', 'delivered', 'cancelled'
     ]),
     validarCampos
-], updateOrderStatus);
+], adminUpdateOrderStatus);  // 🔧 Usa la función de admin
 
 module.exports = router;

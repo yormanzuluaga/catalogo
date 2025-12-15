@@ -288,7 +288,7 @@ const createTransactionComplete = async (req = request, res = response) => {
                     points: totalPoints,
                     status: 'pending'
                 },
-                status: 'pending',
+                status: paymentStatus === 'approved' ? 'approved' : 'pending',  // 🔧 FIX: Usar estado correcto según pago
                 tracking: {
                     estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 días
                 },

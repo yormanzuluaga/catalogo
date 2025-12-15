@@ -163,10 +163,10 @@ const updateOrderStatus = async (req = request, res = response) => {
             const commissionAmount = order.commission.amount;
             const commissionPoints = order.commission.points;
 
-            // Mover de pendiente a disponible
+            // Solo mover de pendiente a disponible (NO sumar a total, ya se sumó al crear la transacción)
             wallet.pendingBalance = Math.max(0, (wallet.pendingBalance || 0) - commissionAmount);
             wallet.balance = (wallet.balance || 0) + commissionAmount;
-            wallet.totalCommissionsEarned = (wallet.totalCommissionsEarned || 0) + commissionAmount;
+            // ❌ NO sumar a totalCommissionsEarned aquí, ya se sumó en la transacción
 
             if (commissionPoints > 0) {
                 wallet.points = (wallet.points || 0) + commissionPoints;
@@ -447,10 +447,218 @@ const getPendingOrders = async (req = request, res = response) => {
     }
 };
 
+/**
+ * 🔐 ADMIN: OBTENER TODAS LAS ÓRDENES (TODOS LOS USUARIOS)
+ * GET /api/shipping-orders-v2/admin/all-orders
+ */
+const adminGetAllOrders = async (req = request, res = response) => {
+    try {
+        const { limit = 20, skip = 0, status, seller } = req.query;
+
+        console.log('👨‍💼 ADMIN: Obteniendo todas las órdenes');
+
+        // Construir filtros
+        const filters = { estado: true };
+        if (status) {
+            filters.status = status;
+        }
+        if (seller) {
+            filters.seller = seller;
+        }
+
+        const [total, orders] = await Promise.all([
+            ShippingOrder.countDocuments(filters),
+            ShippingOrder.find(filters)
+                .populate('seller', 'firstName lastName email phone')
+                .populate('buyer', 'firstName lastName email phone')
+                .populate('transaction', 'transactionNumber totalAmount')
+                .populate('shippingAddress')
+                .populate('items.product', 'name images')
+                .sort({ createdAt: -1 })
+                .skip(Number(skip))
+                .limit(Number(limit))
+        ]);
+
+        console.log(`✅ ADMIN: ${orders.length} órdenes encontradas de ${total} totales`);
+
+        res.json({
+            success: true,
+            total,
+            orders,
+            hasMore: (Number(skip) + Number(limit)) < total
+        });
+
+    } catch (error) {
+        console.error('❌ Error admin al obtener órdenes:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al obtener órdenes',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * 🔐 ADMIN: ACTUALIZAR ESTADO DE CUALQUIER ORDEN
+ * PUT /api/shipping-orders-v2/admin/:id/status
+ */
+const adminUpdateOrderStatus = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+        const { status, notes } = req.body;
+        const adminUser = req.authenticatedUser;
+
+        console.log('👨‍💼 ADMIN: Actualizando estado de orden:', id);
+        console.log('Nuevo estado:', status);
+        console.log('Admin:', adminUser.firstName);
+
+        // Buscar orden (sin filtrar por usuario)
+        const order = await ShippingOrder.findOne({
+            _id: id,
+            estado: true
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                msg: 'Orden de envío no encontrada'
+            });
+        }
+
+        const previousStatus = order.status;
+        console.log('Estado anterior:', previousStatus);
+
+        // Actualizar estado
+        order.status = status;
+
+        // Actualizar tracking según el estado
+        const now = new Date();
+        switch (status) {
+            case 'approved':
+                if (!order.tracking.preparedAt) {
+                    order.tracking.preparedAt = now;
+                }
+                break;
+            case 'preparing':
+                if (!order.tracking.preparedAt) {
+                    order.tracking.preparedAt = now;
+                }
+                break;
+            case 'in_transit':
+                order.tracking.shippedAt = now;
+                break;
+            case 'delivered':
+                order.tracking.deliveredAt = now;
+                break;
+            case 'cancelled':
+                order.tracking.cancelledAt = now;
+                break;
+        }
+
+        // Agregar nota del admin
+        if (notes) {
+            order.notes = order.notes || {};
+            order.notes.adminNotes = (order.notes.adminNotes || '') +
+                `\n[${now.toISOString()}] Admin ${adminUser.firstName}: [${status}] ${notes}`;
+        }
+
+        await order.save();
+
+        // ========================================
+        // MOVER BALANCE DE PENDING A DISPONIBLE (SI APLICA)
+        // ========================================
+
+        let balanceUpdated = false;
+        let walletInfo = null;
+
+        // Cuando se aprueba o se entrega, mover el balance
+        if ((status === 'approved' || status === 'delivered') &&
+            order.commission.status === 'pending' &&
+            order.commission.amount > 0) {
+
+            console.log('💰 ADMIN: Moviendo balance de pending a disponible...');
+
+            // Buscar wallet del vendedor
+            let wallet = await Wallet.findOne({ user: order.seller, estado: true });
+
+            if (wallet) {
+                const commissionAmount = order.commission.amount;
+
+                // Solo mover de pending a disponible (NO sumar a total, ya se sumó al crear la transacción)
+                wallet.pendingBalance = Math.max(0, (wallet.pendingBalance || 0) - commissionAmount);
+                wallet.balance = (wallet.balance || 0) + commissionAmount;
+                // ❌ NO sumar a totalCommissionsEarned aquí, ya se sumó en la transacción
+
+                await wallet.save();
+
+                // Actualizar comisión de la orden
+                order.commission.status = 'deposited';
+                order.commission.depositedAt = now;;
+                await order.save();
+
+                // Crear movimiento en wallet
+                const walletMovement = new WalletMovements({
+                    type: 'commission_approved',
+                    amount: commissionAmount,
+                    points: order.commission.points || 0,
+                    balanceAfter: wallet.balance,
+                    pointsAfter: wallet.points,
+                    description: `Comisión aprobada por admin - Orden #${order.orderNumber}`,
+                    wallet: wallet._id,
+                    sale: order.transaction,
+                    status: 'completed',
+                    metadata: {
+                        orderNumber: order.orderNumber,
+                        adminId: adminUser._id,
+                        adminName: adminUser.firstName,
+                        previousStatus,
+                        newStatus: status
+                    }
+                });
+                await walletMovement.save();
+
+                balanceUpdated = true;
+                walletInfo = {
+                    availableBalance: wallet.balance,
+                    pendingBalance: wallet.pendingBalance,
+                    totalEarned: wallet.totalCommissionsEarned
+                };
+
+                console.log('✅ ADMIN: Balance actualizado');
+            }
+        }
+
+        // Popular datos
+        await order.populate([
+            { path: 'seller', select: 'firstName lastName email' },
+            { path: 'buyer', select: 'firstName lastName email' },
+            { path: 'shippingAddress' }
+        ]);
+
+        res.json({
+            success: true,
+            msg: `Estado actualizado de ${previousStatus} a ${status}${balanceUpdated ? ' - Balance movido a disponible' : ''}`,
+            order,
+            balanceUpdated,
+            wallet: walletInfo
+        });
+
+    } catch (error) {
+        console.error('❌ Error admin al actualizar estado:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al actualizar estado de la orden',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getMyOrders,
     updateOrderStatus,
     getOrderDetail,
     getWalletBalance,
-    getPendingOrders  // 🆕 Nuevo endpoint
+    getPendingOrders,
+    adminGetAllOrders,      // 🔐 ADMIN
+    adminUpdateOrderStatus  // 🔐 ADMIN
 };
