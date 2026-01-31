@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banners - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Banners</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Banners Promocionales</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ Nuevo Banner</button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Título</th>
+                                <th>Descripción</th>
+                                <th>Orden</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bannersBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="bannerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Banner</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="bannerForm">
+                <div class="form-group">
+                    <label for="bannerTitle">Título *</label>
+                    <input type="text" id="bannerTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="bannerDescription">Descripción</label>
+                    <textarea id="bannerDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="bannerOrder">Orden</label>
+                    <input type="number" id="bannerOrder" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="bannerImage">Imagen *</label>
+                    <input type="file" id="bannerImage" accept="image/*">
+                    <div id="imagePreview" class="image-preview hidden">
+                        <img id="previewImg" src="" alt="Preview">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="bannerStatus">Estado</label>
+                    <select id="bannerStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveBannerBtn" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentBannerId = null;
+
+        // Preview image
+        document.getElementById('bannerImage').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    document.getElementById('previewImg').src = event.target.result;
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function loadBanners() {
+            showLoading(true);
+            try {
+                const data = await api.getBanners();
+                const banners = data.banners || [];
+                const tbody = document.getElementById('bannersBody');
+                tbody.innerHTML = '';
+
+                banners.forEach(banner => {
+                    const tr = document.createElement('tr');
+                    const imageUrl = banner.imageUrl || '';
+                    tr.innerHTML = `
+                        <td>${imageUrl ? `<img src="${imageUrl}" style="width: 100px; height: 50px; object-fit: cover; border-radius: 5px;">` : 'Sin imagen'}</td>
+                        <td>${banner.title || 'N/A'}</td>
+                        <td>${banner.description || 'N/A'}</td>
+                        <td>${banner.position || 0}</td>
+                        <td><span class="badge badge-${banner.isActive !== false ? 'success' : 'danger'}">${banner.isActive !== false ? 'Activo' : 'Inactivo'}</span></td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="editBanner('${banner._id}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteBanner('${banner._id}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (banners.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay banners registrados</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading banners:', error);
+                showAlert('Error al cargar los banners', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function openCreateModal() {
+            currentBannerId = null;
+            document.getElementById('modalTitle').textContent = 'Nuevo Banner';
+            document.getElementById('bannerForm').reset();
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('bannerImage').required = true;
+            document.getElementById('bannerModal').classList.add('active');
+        }
+
+        async function editBanner(id) {
+            currentBannerId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Banner';
+            document.getElementById('bannerImage').required = false;
+
+            try {
+                const data = await api.getBanners();
+                const banner = data.banners.find(b => b._id === id);
+
+                if (banner) {
+                    document.getElementById('bannerTitle').value = banner.title || '';
+                    document.getElementById('bannerDescription').value = banner.description || '';
+                    document.getElementById('bannerOrder').value = banner.position || 0;
+                    document.getElementById('bannerStatus').value = banner.isActive !== false ? 'true' : 'false';
+
+                    if (banner.imageUrl) {
+                        document.getElementById('previewImg').src = banner.imageUrl;
+                        document.getElementById('imagePreview').classList.remove('hidden');
+                    }
+
+                    document.getElementById('bannerModal').classList.add('active');
+                }
+            } catch (error) {
+                showAlert('Error al cargar el banner', 'error');
+            }
+        }
+
+        async function deleteBanner(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este banner?')) {
+                return;
+            }
+
+            try {
+                await api.deleteBanner(id);
+                showAlert('Banner eliminado exitosamente', 'success');
+                loadBanners();
+            } catch (error) {
+                showAlert(error.message || 'Error al eliminar el banner', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('bannerModal').classList.remove('active');
+            document.getElementById('bannerForm').reset();
+            document.getElementById('imagePreview').classList.add('hidden');
+            currentBannerId = null;
+        }
+
+        document.getElementById('bannerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveBannerBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            try {
+                const imageFile = document.getElementById('bannerImage').files[0];
+
+                if (currentBannerId) {
+                    // Actualizar banner existente
+                    if (imageFile) {
+                        // Si hay nueva imagen, usar FormData
+                        const formData = new FormData();
+                        formData.append('title', document.getElementById('bannerTitle').value);
+                        formData.append('description', document.getElementById('bannerDescription').value);
+                        formData.append('position', document.getElementById('bannerOrder').value);
+                        formData.append('status', document.getElementById('bannerStatus').value);
+                        formData.append('archivo', imageFile);
+
+                        await api.updateBannerWithFile(currentBannerId, formData);
+                    } else {
+                        // Si no hay nueva imagen, usar JSON
+                        const bannerData = {
+                            title: document.getElementById('bannerTitle').value,
+                            description: document.getElementById('bannerDescription').value,
+                            position: parseInt(document.getElementById('bannerOrder').value),
+                            status: document.getElementById('bannerStatus').value === 'true'
+                        };
+                        await api.updateBanner(currentBannerId, bannerData);
+                    }
+                    showAlert('Banner actualizado exitosamente', 'success');
+                } else {
+                    // Crear nuevo banner
+                    if (!imageFile) {
+                        showAlert('Debes seleccionar una imagen', 'error');
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('title', document.getElementById('bannerTitle').value);
+                    formData.append('description', document.getElementById('bannerDescription').value);
+                    formData.append('position', document.getElementById('bannerOrder').value);
+                    formData.append('status', document.getElementById('bannerStatus').value);
+                    formData.append('archivo', imageFile);
+
+                    await api.createBanner(formData);
+                    showAlert('Banner creado exitosamente', 'success');
+                }
+
+                closeModal();
+                loadBanners();
+            } catch (error) {
+                showAlert(error.message || 'Error al guardar el banner', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+        document.getElementById('bannerModal').addEventListener('click', (e) => {
+            if (e.target.id === 'bannerModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadBanners();
+    </script>
+</body>
+
+</html>

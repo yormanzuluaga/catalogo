@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Órdenes - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Órdenes</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Filtros</h2>
+                </div>
+                <div style="padding: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filterStatus">Estado:</label>
+                        <select id="filterStatus" onchange="loadOrders()" style="margin: 0;">
+                            <option value="">Todos</option>
+                            <option value="pending">Pendiente</option>
+                            <option value="approved">Aprobado</option>
+                            <option value="preparing">Preparando</option>
+                            <option value="ready">Listo para enviar</option>
+                            <option value="in_transit">En camino</option>
+                            <option value="delivered">Entregado</option>
+                            <option value="cancelled">Cancelado</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadOrders()">🔄 Actualizar</button>
+                </div>
+            </div>
+
+            <!-- Tabla de Órdenes -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Órdenes de Envío</h2>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° Orden</th>
+                                <th>Vendedor</th>
+                                <th>Total</th>
+                                <th>Comisión</th>
+                                <th>Estado</th>
+                                <th>Estado Comisión</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Detalles -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Detalles de la Orden</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+
+            <div id="orderDetails" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+                <!-- Order details will be loaded here -->
+            </div>
+
+            <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
+                <h3 style="margin-bottom: 15px;">Actualizar Estado de la Orden</h3>
+                <div class="form-group">
+                    <label for="orderStatus">Nuevo Estado:</label>
+                    <select id="orderStatus">
+                        <option value="pending">Pendiente</option>
+                        <option value="approved">Aprobado ✅ (Deposita Comisión)</option>
+                        <option value="preparing">Preparando</option>
+                        <option value="ready">Listo para enviar</option>
+                        <option value="in_transit">En camino</option>
+                        <option value="delivered">Entregado ✅ (Deposita Comisión)</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="orderNotes">Notas (opcional):</label>
+                    <textarea id="orderNotes" rows="3"
+                        placeholder="Agregar notas sobre el cambio de estado..."></textarea>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button class="btn btn-success" onclick="updateOrderStatus()">Actualizar Estado</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentOrderId = null;
+
+        async function loadOrders() {
+            showLoading(true);
+            try {
+                const filterStatus = document.getElementById('filterStatus').value;
+                const queryParams = filterStatus ? `?status=${filterStatus}` : '';
+
+                // Usar la API V2 con ruta de admin
+                const response = await fetch(`/api/shipping-orders-v2/admin/all-orders${queryParams}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Error al cargar órdenes');
+
+                const data = await response.json();
+                const orders = data.orders || [];
+                const tbody = document.getElementById('ordersBody');
+                tbody.innerHTML = '';
+
+                orders.forEach(order => {
+                    const tr = document.createElement('tr');
+                    const sellerName = order.seller?.firstName || order.seller?.email || 'N/A';
+                    const total = formatCurrency(order.totalAmount || 0);
+                    const commission = formatCurrency(order.commission?.amount || 0);
+                    const status = order.status || 'pending';
+                    const commissionStatus = order.commission?.status || 'pending';
+
+                    tr.innerHTML = `
+                        <td><strong>${order.orderNumber || 'N/A'}</strong></td>
+                        <td>${sellerName}</td>
+                        <td>${total}</td>
+                        <td>${commission}</td>
+                        <td><span class="badge badge-${getStatusColor(status)}">${translateStatus(status)}</span></td>
+                        <td><span class="badge badge-${getCommissionColor(commissionStatus)}">${translateCommissionStatus(commissionStatus)}</span></td>
+                        <td>${formatDate(order.createdAt)}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="viewOrder('${order._id}')">Ver Detalles</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (orders.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay órdenes registradas</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                showAlert('Error al cargar las órdenes: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function viewOrder(id) {
+            currentOrderId = id;
+
+            // Validar que el ID sea válido
+            if (!id || id === 'undefined' || id === 'null') {
+                showAlert('ID de orden no válido', 'error');
+                return;
+            }
+
+            try {
+                // Usar ruta de ADMIN para obtener detalle
+                const response = await fetch(`/api/shipping-orders-v2/admin/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.msg || `Error ${response.status}: No se pudo cargar la orden`);
+                }
+
+                const data = await response.json();
+
+                // Validar que la respuesta tenga la estructura correcta
+                if (!data.success || !data.order) {
+                    throw new Error('Respuesta del servidor no válida');
+                }
+
+                const order = data.order;
+                const detailsDiv = document.getElementById('orderDetails');
+
+                // Información del vendedor
+                let sellerHtml = `
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="margin-top: 0;">👤 Vendedor</h3>
+                        <p><strong>Nombre:</strong> ${order.seller?.firstName || ''} ${order.seller?.lastName || ''}</p>
+                        <p><strong>Email:</strong> ${order.seller?.email || 'N/A'}</p>
+                        <p><strong>Teléfono:</strong> ${order.seller?.phone || 'N/A'}</p>
+                    </div>
+                `;
+
+                // Información del cliente
+                let customerHtml = '';
+                if (order.customer) {
+                    customerHtml = `
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0;">👥 Cliente</h3>
+                            <p><strong>Nombre:</strong> ${order.customer.name || 'N/A'}</p>
+                            <p><strong>Email:</strong> ${order.customer.email || 'N/A'}</p>
+                            <p><strong>Teléfono:</strong> ${order.customer.phone || 'N/A'}</p>
+                        </div>
+                    `;
+                }
+
+                // Dirección de envío
+                let addressHtml = '';
+                if (order.shippingAddress) {
+                    addressHtml = `
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0;">📍 Dirección de Envío</h3>
+                            <p>${order.shippingAddress.fullAddress || ''}</p>
+                            <p>${order.shippingAddress.city || ''}, ${order.shippingAddress.department || ''}</p>
+                            <p><strong>Código Postal:</strong> ${order.shippingAddress.postalCode || 'N/A'}</p>
+                        </div>
+                    `;
+                }
+
+                // Productos
+                let productsHtml = '';
+                if (order.items && order.items.length > 0) {
+                    productsHtml = `
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0;">📦 Productos</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #ddd;">
+                                        <th style="text-align: left; padding: 8px;">Producto</th>
+                                        <th style="text-align: center; padding: 8px;">Cantidad</th>
+                                        <th style="text-align: right; padding: 8px;">Precio Unit.</th>
+                                        <th style="text-align: right; padding: 8px;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    order.items.forEach(item => {
+                        productsHtml += `
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 8px;">
+                                    ${item.name || 'Producto'}
+                                    ${item.image ? `<br><img src="${item.image}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 5px;">` : ''}
+                                </td>
+                                <td style="text-align: center; padding: 8px;">${item.quantity || 1}</td>
+                                <td style="text-align: right; padding: 8px;">${formatCurrency(item.unitPrice || 0)}</td>
+                                <td style="text-align: right; padding: 8px;"><strong>${formatCurrency(item.totalPrice || 0)}</strong></td>
+                            </tr>
+                        `;
+                    });
+
+                    productsHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                // Información de comisión y pago
+                let commissionHtml = '';
+                if (order.commission) {
+                    const depositedDate = order.commission.depositedAt ? formatDate(order.commission.depositedAt) : 'Pendiente';
+                    commissionHtml = `
+                        <div style="background: ${order.commission.status === 'deposited' ? '#e8f5e9' : '#fff3e0'}; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0;">💰 Comisión</h3>
+                            <p><strong>Monto:</strong> ${formatCurrency(order.commission.amount || 0)}</p>
+                            <p><strong>Puntos:</strong> ${order.commission.points || 0}</p>
+                            <p><strong>Estado:</strong> <span class="badge badge-${getCommissionColor(order.commission.status)}">${translateCommissionStatus(order.commission.status)}</span></p>
+                            <p><strong>Fecha de Depósito:</strong> ${depositedDate}</p>
+                        </div>
+                    `;
+                }
+
+                // Información de tracking
+                let trackingHtml = '';
+                if (order.tracking) {
+                    trackingHtml = `
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0;">🚚 Seguimiento</h3>
+                            ${order.tracking.estimatedDelivery ? `<p><strong>Entrega Estimada:</strong> ${formatDate(order.tracking.estimatedDelivery)}</p>` : ''}
+                            ${order.tracking.preparedAt ? `<p><strong>Preparado:</strong> ${formatDate(order.tracking.preparedAt)}</p>` : ''}
+                            ${order.tracking.shippedAt ? `<p><strong>Enviado:</strong> ${formatDate(order.tracking.shippedAt)}</p>` : ''}
+                            ${order.tracking.deliveredAt ? `<p><strong>Entregado:</strong> ${formatDate(order.tracking.deliveredAt)}</p>` : ''}
+                        </div>
+                    `;
+                }
+
+                detailsDiv.innerHTML = `
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="margin-top: 0;">📋 Información General</h3>
+                        <p><strong>N° Orden:</strong> ${order.orderNumber || 'N/A'}</p>
+                        <p><strong>Estado:</strong> <span class="badge badge-${getStatusColor(order.status)}">${translateStatus(order.status)}</span></p>
+                        <p><strong>Total:</strong> <strong style="font-size: 1.2em; color: #1976d2;">${formatCurrency(order.totalAmount || 0)}</strong></p>
+                        <p><strong>Fecha de Creación:</strong> ${formatDate(order.createdAt)}</p>
+                        ${order.updatedAt ? `<p><strong>Última Actualización:</strong> ${formatDate(order.updatedAt)}</p>` : ''}
+                    </div>
+                    ${sellerHtml}
+                    ${customerHtml}
+                    ${addressHtml}
+                    ${productsHtml}
+                    ${commissionHtml}
+                    ${trackingHtml}
+                `;
+
+                document.getElementById('orderStatus').value = order.status || 'pending';
+                document.getElementById('orderNotes').value = '';
+                document.getElementById('orderModal').classList.add('active');
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Error al cargar los detalles de la orden: ' + error.message, 'error');
+            }
+        }
+
+        async function updateOrderStatus() {
+            if (!currentOrderId) return;
+
+            const newStatus = document.getElementById('orderStatus').value;
+            const notes = document.getElementById('orderNotes').value.trim();
+
+            try {
+                // Usar API V2 para actualizar estado
+                const response = await fetch(`/api/shipping-orders-v2/${currentOrderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        notes: notes || undefined
+                    })
+                });
+
+                if (!response.ok) throw new Error('Error al actualizar estado');
+
+                const data = await response.json();
+
+                let message = data.msg || 'Estado actualizado exitosamente';
+                if (data.balanceUpdated) {
+                    message += ` - Balance actualizado: $${formatCurrency(data.wallet?.availableBalance || 0)}`;
+                }
+
+                showAlert(message, 'success');
+                closeModal();
+                loadOrders();
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert(error.message || 'Error al actualizar el estado', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').classList.remove('active');
+            currentOrderId = null;
+        }
+
+        function getStatusColor(status) {
+            const statusColors = {
+                'pending': 'warning',
+                'approved': 'success',
+                'preparing': 'info',
+                'ready': 'info',
+                'in_transit': 'info',
+                'delivered': 'success',
+                'cancelled': 'danger'
+            };
+            return statusColors[status] || 'info';
+        }
+
+        function getCommissionColor(status) {
+            const statusColors = {
+                'pending': 'warning',
+                'deposited': 'success',
+                'cancelled': 'danger'
+            };
+            return statusColors[status] || 'warning';
+        }
+
+        function translateStatus(status) {
+            const translations = {
+                'pending': 'Pendiente',
+                'approved': 'Aprobado',
+                'preparing': 'Preparando',
+                'ready': 'Listo para enviar',
+                'in_transit': 'En camino',
+                'delivered': 'Entregado',
+                'cancelled': 'Cancelado'
+            };
+            return translations[status] || status;
+        }
+
+        function translateCommissionStatus(status) {
+            const translations = {
+                'pending': 'Pendiente',
+                'deposited': 'Depositada',
+                'cancelled': 'Cancelada'
+            };
+            return translations[status] || status;
+        }
+
+        document.getElementById('orderModal').addEventListener('click', (e) => {
+            if (e.target.id === 'orderModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadOrders();
+    </script>
+</body>
+
+</html>

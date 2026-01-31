@@ -12,9 +12,9 @@ subCategoryCtrl.getAllSubCategories = async (req = request, res = response) => {
     try {
         const { limit = 10, from = 0 } = req.query;
         const { categoryId } = req.params; // Para filtrar por categoría padre
-        
+
         let query = { estado: true };
-        
+
         // Si se proporciona categoryId, filtrar por categoría padre
         if (categoryId) {
             query.category = categoryId;
@@ -79,9 +79,14 @@ subCategoryCtrl.createSubCategory = async (req = request, res = response) => {
     try {
         const { estado, user, ...body } = req.body;
 
+        // Parsear estado si viene como string desde FormData
+        if (body.estado !== undefined) {
+            body.estado = body.estado === 'true' || body.estado === true;
+        }
+
         // Verificar si la subcategoría ya existe EN LA MISMA CATEGORÍA
-        const subCategoryDB = await SubCategory.findOne({ 
-            name: body.name, 
+        const subCategoryDB = await SubCategory.findOne({
+            name: body.name,
             category: body.category,
             estado: true
         });
@@ -100,7 +105,7 @@ subCategoryCtrl.createSubCategory = async (req = request, res = response) => {
         // Manejar imagen si se envió
         if (req.files && req.files.img) {
             try {
-                const imageUrl = await s3Service.uploadFile(req.files.img, 'subcategories');
+                const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'subcategories');
                 data.img = imageUrl;
             } catch (error) {
                 return res.status(400).json({
@@ -139,6 +144,11 @@ subCategoryCtrl.updateSubCategory = async (req = request, res = response) => {
         const { id } = req.params;
         const { estado, user, ...data } = req.body;
 
+        // Parsear estado si viene como string desde FormData
+        if (data.estado !== undefined) {
+            data.estado = data.estado === 'true' || data.estado === true;
+        }
+
         // Obtener la subcategoría actual para eliminar imagen anterior si es necesario
         const currentSubCategory = await SubCategory.findById(id);
         if (!currentSubCategory) {
@@ -176,9 +186,9 @@ subCategoryCtrl.updateSubCategory = async (req = request, res = response) => {
                 if (currentSubCategory.img) {
                     await s3Service.deleteFile(currentSubCategory.img);
                 }
-                
+
                 // Subir nueva imagen
-                const imageUrl = await s3Service.uploadFile(req.files.img, 'subcategories');
+                const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'subcategories');
                 data.img = imageUrl;
             } catch (error) {
                 return res.status(400).json({
@@ -232,8 +242,8 @@ subCategoryCtrl.deleteSubCategory = async (req = request, res = response) => {
 
         // Marcar como eliminada (soft delete)
         const deletedSubCategory = await SubCategory.findByIdAndUpdate(
-            id, 
-            { estado: false }, 
+            id,
+            { estado: false },
             { new: true }
         );
 
@@ -281,7 +291,7 @@ subCategoryCtrl.updateSubCategoryImage = async (req = request, res = response) =
         }
 
         // Subir nueva imagen
-        const imageUrl = await s3Service.uploadFile(req.files.img, 'subcategories');
+        const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'subcategories');
         subCategory.img = imageUrl;
         await subCategory.save();
 

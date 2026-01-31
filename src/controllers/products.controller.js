@@ -192,6 +192,20 @@ productsCtrl.createrproduct = async (req = request, res = response) => {
     try {
         const { estado, user, ...body } = req.body;
 
+        // Parsear campos JSON si vienen como strings (cuando se envía FormData)
+        if (typeof body.filters === 'string') {
+            try {
+                body.filters = JSON.parse(body.filters);
+            } catch (e) {
+                // Si falla, intentar dividir por comas
+                body.filters = body.filters.split(',').map(f => f.trim());
+            }
+        }
+        if (typeof body.points === 'string') body.points = JSON.parse(body.points);
+        if (typeof body.details === 'string') body.details = JSON.parse(body.details);
+        if (typeof body.simpleProduct === 'string') body.simpleProduct = JSON.parse(body.simpleProduct);
+        if (typeof body.variants === 'string') body.variants = JSON.parse(body.variants);
+
         // Validar que se proporcione category O subCategory, pero no ambos
         if (!body.category && !body.subCategory) {
             return res.status(400).json({

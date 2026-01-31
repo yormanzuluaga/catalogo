@@ -57,8 +57,6 @@ router.post('/create', [
     validarJWT,
     check('title', 'El título es obligatorio').notEmpty(),
     check('title', 'El título no puede exceder 100 caracteres').isLength({ max: 100 }),
-    check('imageUrl', 'La URL de la imagen es obligatoria').notEmpty(),
-    check('imageUrl', 'Debe ser una URL válida').isURL(),
     validarCampos
 ], createBanner);
 

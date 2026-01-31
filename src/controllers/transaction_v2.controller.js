@@ -370,6 +370,95 @@ const createTransactionComplete = async (req = request, res = response) => {
     }
 };
 
+/**
+ * 📋 LISTAR TODAS LAS TRANSACCIONES (ADMIN)
+ * GET /api/transactions-v2
+ */
+const getAllTransactions = async (req = request, res = response) => {
+    try {
+        const { page = 1, limit = 50, status, userId } = req.query;
+
+        const query = { estado: true };
+
+        if (status) {
+            query.paymentStatus = status;
+        }
+
+        if (userId) {
+            query.user = userId;
+        }
+
+        const options = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            sort: { createdAt: -1 },
+            populate: [
+                { path: 'user', select: 'firstName lastName email mobile' },
+                { path: 'shippingAddress' }
+            ]
+        };
+
+        const transactions = await Transaction.find(query)
+            .populate('user', 'firstName lastName email mobile')
+            .populate('shippingAddress')
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit));
+
+        const total = await Transaction.countDocuments(query);
+
+        res.json({
+            success: true,
+            transactions,
+            total,
+            page: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (error) {
+        console.error('❌ Error al listar transacciones:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al obtener transacciones',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * 📄 OBTENER UNA TRANSACCIÓN POR ID
+ * GET /api/transactions-v2/:id
+ */
+const getTransactionById = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+
+        const transaction = await Transaction.findById(id)
+            .populate('user', 'firstName lastName email mobile')
+            .populate('shippingAddress');
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                msg: 'Transacción no encontrada'
+            });
+        }
+
+        res.json({
+            success: true,
+            transaction
+        });
+    } catch (error) {
+        console.error('❌ Error al obtener transacción:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al obtener transacción',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
-    createTransactionComplete
+    createTransactionComplete,
+    getAllTransactions,
+    getTransactionById
 };

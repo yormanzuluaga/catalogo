@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Dashboard</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Productos</h3>
+                    <div class="stat-value" id="totalProducts">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Categorías</h3>
+                    <div class="stat-value" id="totalCategories">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Marcas</h3>
+                    <div class="stat-value" id="totalBrands">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Transacciones</h3>
+                    <div class="stat-value" id="totalTransactions">0</div>
+                </div>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Órdenes Recientes</h2>
+                    <a href="orders.html" class="btn btn-primary btn-sm">Ver Todas</a>
+                </div>
+                <div class="table-responsive">
+                    <div id="loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Cargando...</p>
+                    </div>
+                    <table id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Transacciones Recientes</h2>
+                    <a href="transactions.html" class="btn btn-primary btn-sm">Ver Todas</a>
+                </div>
+                <div class="table-responsive">
+                    <table id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // Check authentication
+        checkAuth();
+        initSidebar();
+
+        // Set user name
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            showLoading(true);
+
+            try {
+                // Load stats
+                const [products, categories, brands, transactions] = await Promise.all([
+                    api.getProducts(),
+                    api.getCategories(),
+                    api.getBrands(),
+                    api.getTransactions()
+                ]);
+
+                // Manejar diferentes estructuras de respuesta
+                const totalProducts = products.total || products.products?.length || 0;
+                const totalCategories = categories.allCategory || categories.category?.length || 0;
+                const totalBrands = brands.totalBrands || brands.brands?.length || 0;
+                const totalTransactions = transactions.total || transactions.transactions?.length || 0;
+
+                document.getElementById('totalProducts').textContent = totalProducts;
+                document.getElementById('totalCategories').textContent = totalCategories;
+                document.getElementById('totalBrands').textContent = totalBrands;
+                document.getElementById('totalTransactions').textContent = totalTransactions;
+
+                // Load recent transactions
+                loadRecentTransactions(transactions.transactions || []);
+
+                // Load recent orders
+                await loadRecentOrders();
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showAlert('Error al cargar el dashboard', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function loadRecentTransactions(transactions) {
+            const tbody = document.getElementById('transactionsBody');
+            tbody.innerHTML = '';
+
+            const recent = transactions.slice(0, 5);
+
+            recent.forEach(transaction => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${transaction._id?.substring(0, 8) || 'N/A'}</td>
+                    <td>${transaction.user?.name || transaction.user?.email || 'N/A'}</td>
+                    <td>${formatCurrency(transaction.amount || 0)}</td>
+                    <td><span class="badge badge-${getStatusColor(transaction.status)}">${transaction.status || 'N/A'}</span></td>
+                    <td>${formatDate(transaction.createdAt)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (recent.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay transacciones</td></tr>';
+            }
+        }
+
+        async function loadRecentOrders() {
+            try {
+                const data = await api.getOrders();
+                const orders = data.orders || [];
+                const tbody = document.getElementById('ordersBody');
+                tbody.innerHTML = '';
+
+                const recent = orders.slice(0, 5);
+
+                recent.forEach(order => {
+                    const sellerName = order.seller?.firstName || order.seller?.email || 'N/A';
+                    const totalAmount = order.totalAmount || order.total || 0;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${order.orderNumber || order._id?.substring(0, 8) || 'N/A'}</td>
+                        <td>${sellerName}</td>
+                        <td>${formatCurrency(totalAmount)}</td>
+                        <td><span class="badge badge-${getStatusColor(order.status)}">${translateOrderStatus(order.status)}</span></td>
+                        <td>${formatDate(order.createdAt)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (recent.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay órdenes</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        function translateOrderStatus(status) {
+            const translations = {
+                'pending': 'Pendiente',
+                'approved': 'Aprobado',
+                'preparing': 'Preparando',
+                'ready': 'Listo',
+                'in_transit': 'En camino',
+                'delivered': 'Entregado',
+                'cancelled': 'Cancelado'
+            };
+            return translations[status] || status;
+        }
+
+        function getStatusColor(status) {
+            const statusColors = {
+                'APPROVED': 'success',
+                'PENDING': 'warning',
+                'DECLINED': 'danger',
+                'ERROR': 'danger',
+                'completed': 'success',
+                'pending': 'warning',
+                'cancelled': 'danger'
+            };
+            return statusColors[status] || 'info';
+        }
+
+        // Initialize
+        loadDashboardData();
+    </script>
+</body>
+
+</html>

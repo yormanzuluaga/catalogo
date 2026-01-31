@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "create-admin": "node create-admin.js",
     "migrate": "node migrations/uploads-migration.js",
     "test-s3": "node test-s3.js",
     "test-variants": "node test-variants.js",

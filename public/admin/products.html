@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Productos</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Productos</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ Nuevo Producto</button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Marca</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Producto</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="productForm">
+                <!-- Tipo de Producto -->
+                <div class="form-group">
+                    <label for="productType">Tipo de Producto *</label>
+                    <select id="productType" required onchange="toggleProductType()">
+                        <option value="simple">Producto Simple</option>
+                        <option value="variable">Producto con Variantes</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Simple: un producto sin variantes.
+                        Variantes: producto con colores/tallas</small>
+                </div>
+
+                <!-- Información Básica -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">📋
+                    Información Básica</h3>
+
+                <div class="form-group">
+                    <label for="productName">Nombre del Producto *</label>
+                    <input type="text" id="productName" required placeholder="Ej: Labial Mate Rojo Intenso">
+                </div>
+
+                <div class="form-group">
+                    <label for="productModel">Modelo</label>
+                    <input type="text" id="productModel" placeholder="Ej: LM-2024-001">
+                    <small style="display: block; margin-top: 5px; color: #666;">Código o modelo del producto</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productDescription">Descripción</label>
+                    <textarea id="productDescription" rows="3" placeholder="Describe el producto..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="productBrand">Marca *</label>
+                    <select id="productBrand" required>
+                        <option value="">Selecciona una marca</option>
+                    </select>
+                </div>
+
+                <!-- Categorización -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">🏷️
+                    Categorización</h3>
+
+                <div class="form-group">
+                    <label for="productCategory">Categoría</label>
+                    <select id="productCategory" onchange="loadSubcategoriesByCategory()">
+                        <option value="">Selecciona una categoría</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Solo si NO usa subcategoría</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productSubcategory">Subcategoría</label>
+                    <select id="productSubcategory">
+                        <option value="">Sin subcategoría</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Solo si NO usa categoría
+                        directa</small>
+                </div>
+
+                <!-- Filtros dinámicos según categoría -->
+                <div class="form-group" id="filtersSection" style="display: none;">
+                    <label>🏁 Filtros de la Categoría</label>
+                    <div id="availableFilters"
+                        style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px; min-height: 50px;">
+                        <small style="color: #888;">Selecciona una categoría para ver los filtros disponibles</small>
+                    </div>
+                    <small style="display: block; margin-top: 5px; color: #666;">Selecciona los filtros que aplican a
+                        este producto</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productFilters">Filtros Personalizados (separados por coma)</label>
+                    <input type="text" id="productFilters" placeholder="Ej: nuevo, oferta, exclusivo">
+                    <small style="display: block; margin-top: 5px; color: #666;">Opcional: Etiquetas adicionales
+                        personalizadas</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="basePrice">Precio Base</label>
+                    <input type="number" id="basePrice" step="0.01" min="0" placeholder="0.00">
+                    <small style="display: block; margin-top: 5px; color: #666;">Precio de referencia para productos con
+                        variantes</small>
+                </div>
+
+                <!-- Producto Simple -->
+                <div id="simpleProductFields">
+                    <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">💰
+                        Precios e Inventario</h3>
+
+                    <div class="form-group">
+                        <label for="simpleCostPrice">Precio de Costo *</label>
+                        <input type="number" id="simpleCostPrice" step="0.01" min="0" placeholder="0.00"
+                            onchange="calculateProfit()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="simpleSalePrice">Precio de Venta *</label>
+                        <input type="number" id="simpleSalePrice" step="0.01" min="0" placeholder="0.00"
+                            onchange="calculateProfit()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="simpleProfit">Ganancia (calculada automáticamente)</label>
+                        <input type="text" id="simpleProfit" readonly style="background: #f5f5f5;"
+                            placeholder="$0.00 (0%)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="simpleCommission">Comisión</label>
+                        <input type="number" id="simpleCommission" step="0.01" min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="simpleStock">Stock Disponible</label>
+                        <input type="number" id="simpleStock" min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="simpleBarcode">Código de Barras</label>
+                        <input type="text" id="simpleBarcode" placeholder="Ej: 7501234567890">
+                    </div>
+                </div>
+
+                <!-- Producto con Variantes -->
+                <div id="variantProductFields" style="display: none;">
+                    <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">🎨
+                        Variantes del Producto</h3>
+
+                    <button type="button" class="btn btn-success" onclick="addVariant()" style="margin-bottom: 15px;">
+                        + Agregar Variante
+                    </button>
+
+                    <div id="variantsContainer"></div>
+                </div>
+
+                <!-- Puntos -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">💯
+                    Sistema de Puntos</h3>
+
+                <div class="form-group">
+                    <label for="earnPoints">Puntos que Gana el Cliente</label>
+                    <input type="number" id="earnPoints" min="0" value="0" placeholder="Puntos al comprar">
+                </div>
+
+                <div class="form-group">
+                    <label for="redeemPoints">Puntos para Canjear</label>
+                    <input type="number" id="redeemPoints" min="0" value="0"
+                        placeholder="Puntos necesarios para canjear">
+                </div>
+
+                <!-- Imágenes -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">📸
+                    Imágenes y Multimedia</h3>
+
+                <div class="form-group">
+                    <label for="productImageFile">🖼️ Subir Imagen Principal</label>
+                    <input type="file" id="productImageFile" accept="image/*" onchange="previewMainImage(this)">
+                    <small style="display: block; margin-top: 5px; color: #666;">Selecciona una imagen desde tu
+                        computadora (JPG, PNG, GIF)</small>
+                    <div id="mainImagePreview" style="margin-top: 10px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="productImage">📎 O usar URL de Imagen Principal</label>
+                    <input type="url" id="productImage" placeholder="https://ejemplo.com/imagen.jpg">
+                    <small style="display: block; margin-top: 5px; color: #666;">Opcional: Si prefieres usar una URL
+                        externa</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productImagesFiles">🖼️ Subir Imágenes Adicionales</label>
+                    <input type="file" id="productImagesFiles" accept="image/*" multiple
+                        onchange="previewAdditionalImages(this)">
+                    <small style="display: block; margin-top: 5px; color: #666;">Puedes seleccionar múltiples imágenes
+                        (Ctrl/Cmd + Click)</small>
+                    <div id="additionalImagesPreview"
+                        style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="productImages">📎 O usar URLs de Imágenes Adicionales</label>
+                    <textarea id="productImages" rows="2"
+                        placeholder="https://ejemplo.com/img1.jpg, https://ejemplo.com/img2.jpg"></textarea>
+                    <small style="display: block; margin-top: 5px; color: #666;">Opcional: URLs separadas por
+                        comas</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productVideo">🎥 URL de Video</label>
+                    <input type="url" id="productVideo" placeholder="https://youtube.com/watch?v=...">
+                </div>
+
+                <!-- Disponibilidad -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">🌍
+                    Disponibilidad</h3>
+
+                <div class="form-group">
+                    <label for="deliveryTime">Tiempo de Entrega</label>
+                    <input type="text" id="deliveryTime" placeholder="Ej: 2-5 días hábiles">
+                </div>
+
+                <div class="form-group">
+                    <label for="productAvailable">Disponible para Venta</label>
+                    <select id="productAvailable">
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="productStatus">Estado</label>
+                    <select id="productStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+
+                <!-- Detalles del Producto -->
+                <h3 style="margin-top: 20px; color: #333; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px;">📝
+                    Detalles y Especificaciones</h3>
+
+                <div class="form-group">
+                    <label for="productSpecifications">Especificaciones (JSON)</label>
+                    <textarea id="productSpecifications" rows="3"
+                        placeholder='[{"name":"Material","value":"Algodón","unit":""}]'></textarea>
+                    <small style="display: block; margin-top: 5px; color: #666;">Array de objetos JSON con name, value,
+                        unit</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productFeatures">Características (separadas por coma)</label>
+                    <textarea id="productFeatures" rows="2"
+                        placeholder="Tela suave, Diseño moderno, Fácil de lavar"></textarea>
+                    <small style="display: block; margin-top: 5px; color: #666;">Lista de características
+                        destacadas</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="productCareInstructions">Instrucciones de Cuidado</label>
+                    <textarea id="productCareInstructions" rows="2"
+                        placeholder="Lavar a máquina en agua fría. No usar blanqueador."></textarea>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveProductBtn" class="btn btn-success">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentProductId = null;
+        let categories = [];
+        let subcategories = [];
+        let brands = [];
+
+        async function loadCategoriesData() {
+            try {
+                const [catData, subData, brandData] = await Promise.all([
+                    api.getCategories(),
+                    api.getSubcategories(),
+                    api.getBrands()
+                ]);
+
+                categories = catData.category || catData.categories || [];
+                subcategories = subData.subCategories || subData.subcategories || [];
+                brands = brandData.brands || [];
+
+                // Load categories select
+                const catSelect = document.getElementById('productCategory');
+                catSelect.innerHTML = '<option value="">Selecciona una categoría</option>';
+                categories.filter(c => c.estado !== false).forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category._id;
+                    option.textContent = category.name;
+                    catSelect.appendChild(option);
+                });
+
+                // Load brands select - requerido
+                const brandSelect = document.getElementById('productBrand');
+                brandSelect.innerHTML = '<option value="">Selecciona una marca</option>';
+                brands.filter(b => b.estado !== false).forEach(brand => {
+                    const option = document.createElement('option');
+                    option.value = brand._id;
+                    option.textContent = brand.name;
+                    brandSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading categories data:', error);
+            }
+        }
+
+        let selectedFilters = [];
+        let availableFilters = [];
+
+        async function loadFiltersByCategory(categoryId) {
+            const filtersSection = document.getElementById('filtersSection');
+            const filtersContainer = document.getElementById('availableFilters');
+
+            if (!categoryId) {
+                filtersSection.style.display = 'none';
+                filtersContainer.innerHTML = '<small style="color: #888;">Selecciona una categoría para ver los filtros disponibles</small>';
+                availableFilters = [];
+                selectedFilters = [];
+                return;
+            }
+
+            try {
+                const data = await api.getFiltersByCategory(categoryId);
+                availableFilters = data.filters || [];
+
+                if (availableFilters.length === 0) {
+                    filtersSection.style.display = 'block';
+                    filtersContainer.innerHTML = '<small style="color: #888;">No hay filtros configurados para esta categoría. <a href="filters.html" target="_blank">Crear filtros</a></small>';
+                    return;
+                }
+
+                filtersSection.style.display = 'block';
+                renderFilters();
+
+            } catch (error) {
+                console.error('Error loading filters:', error);
+                filtersContainer.innerHTML = '<small style="color: #dc3545;">Error al cargar filtros</small>';
+            }
+        }
+
+        function renderFilters() {
+            const filtersContainer = document.getElementById('availableFilters');
+            filtersContainer.innerHTML = '';
+
+            availableFilters.forEach(filter => {
+                const isSelected = selectedFilters.includes(filter.name);
+                const filterBtn = document.createElement('button');
+                filterBtn.type = 'button';
+                filterBtn.className = 'filter-btn';
+                filterBtn.style.cssText = `
+                    padding: 8px 16px;
+                    border: 2px solid ${filter.color || '#333'};
+                    background: ${isSelected ? (filter.color || '#333') : 'white'};
+                    color: ${isSelected ? 'white' : (filter.color || '#333')};
+                    border-radius: 20px;
+                    cursor: pointer;
+                    font-weight: 500;
+                    transition: all 0.3s;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                `;
+
+                filterBtn.innerHTML = `${filter.icon ? filter.icon + ' ' : ''}${filter.name}`;
+                filterBtn.onclick = () => toggleFilter(filter.name);
+
+                filtersContainer.appendChild(filterBtn);
+            });
+        }
+
+        function toggleFilter(filterName) {
+            if (selectedFilters.includes(filterName)) {
+                selectedFilters = selectedFilters.filter(f => f !== filterName);
+            } else {
+                selectedFilters.push(filterName);
+            }
+            renderFilters();
+        }
+
+        function loadSubcategoriesByCategory() {
+            const categoryId = document.getElementById('productCategory').value;
+            const subSelect = document.getElementById('productSubcategory');
+            subSelect.innerHTML = '<option value="">Sin subcategoría</option>';
+
+            // Si selecciona categoría, limpiar subcategoría
+            if (categoryId) {
+                document.getElementById('productSubcategory').value = '';
+                // Cargar filtros de esta categoría
+                loadFiltersByCategory(categoryId);
+            } else {
+                loadFiltersByCategory(null);
+            }
+
+            if (categoryId) {
+                const filtered = subcategories.filter(s => {
+                    const catId = s.category?._id || s.category;
+                    return catId === categoryId && s.estado !== false;
+                });
+
+                filtered.forEach(sub => {
+                    const option = document.createElement('option');
+                    option.value = sub._id;
+                    option.textContent = sub.name;
+                    subSelect.appendChild(option);
+                });
+            }
+        }
+
+        let variantCounter = 0;
+
+        function toggleProductType() {
+            const productType = document.getElementById('productType').value;
+            const simpleFields = document.getElementById('simpleProductFields');
+            const variantFields = document.getElementById('variantProductFields');
+
+            if (productType === 'simple') {
+                simpleFields.style.display = 'block';
+                variantFields.style.display = 'none';
+            } else {
+                simpleFields.style.display = 'none';
+                variantFields.style.display = 'block';
+            }
+        }
+
+        function addVariant() {
+            variantCounter++;
+            const container = document.getElementById('variantsContainer');
+
+            const variantDiv = document.createElement('div');
+            variantDiv.className = 'variant-item';
+            variantDiv.id = `variant-${variantCounter}`;
+            variantDiv.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; background: #f9f9f9;';
+
+            variantDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #555;">Variante #${variantCounter}</h4>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeVariant(${variantCounter})">Eliminar</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>SKU *</label>
+                        <input type="text" class="variant-sku" data-variant="${variantCounter}" required 
+                               placeholder="Ej: PROD-ROJO-M">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Color (Nombre)</label>
+                        <input type="text" class="variant-color-name" data-variant="${variantCounter}" 
+                               placeholder="Ej: Rojo">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Color (Código Hex)</label>
+                        <input type="text" class="variant-color-code" data-variant="${variantCounter}" 
+                               placeholder="Ej: #FF0000">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Talla/Tamaño</label>
+                        <input type="text" class="variant-size" data-variant="${variantCounter}" 
+                               placeholder="Ej: M, 42, Grande">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Largo (cm)</label>
+                        <input type="number" class="variant-length" data-variant="${variantCounter}" 
+                               step="0.01" min="0" placeholder="Ej: 90">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ancho (cm)</label>
+                        <input type="number" class="variant-width" data-variant="${variantCounter}" 
+                               step="0.01" min="0" placeholder="Ej: 45">
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Medidas Personalizadas (JSON)</label>
+                        <textarea class="variant-custom-measurements" data-variant="${variantCounter}" rows="2" 
+                                  placeholder='[{"name":"Busto","value":86,"unit":"cm"}]'></textarea>
+                        <small style="display: block; margin-top: 5px; color: #666;">Array JSON con medidas custom</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Precio de Costo *</label>
+                        <input type="number" class="variant-cost-price" data-variant="${variantCounter}" 
+                               step="0.01" min="0" required placeholder="0.00" 
+                               onchange="calculateVariantProfit(${variantCounter})">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Precio de Venta *</label>
+                        <input type="number" class="variant-sale-price" data-variant="${variantCounter}" 
+                               step="0.01" min="0" required placeholder="0.00" 
+                               onchange="calculateVariantProfit(${variantCounter})">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ganancia (calculada)</label>
+                        <input type="text" class="variant-profit" data-variant="${variantCounter}" 
+                               readonly style="background: #f5f5f5;" placeholder="$0.00 (0%)">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Comisión</label>
+                        <input type="number" class="variant-commission" data-variant="${variantCounter}" 
+                               step="0.01" min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Stock Disponible</label>
+                        <input type="number" class="variant-stock" data-variant="${variantCounter}" 
+                               min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Código de Barras</label>
+                        <input type="text" class="variant-barcode" data-variant="${variantCounter}" 
+                               placeholder="Ej: 7501234567890">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Puntos que Gana</label>
+                        <input type="number" class="variant-earn-points" data-variant="${variantCounter}" 
+                               min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Puntos para Canjear</label>
+                        <input type="number" class="variant-redeem-points" data-variant="${variantCounter}" 
+                               min="0" value="0">
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>URLs de Imágenes (separadas por coma)</label>
+                        <textarea class="variant-images" data-variant="${variantCounter}" rows="2" 
+                                  placeholder="https://ejemplo.com/img1.jpg, https://ejemplo.com/img2.jpg"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Disponible</label>
+                        <select class="variant-available" data-variant="${variantCounter}">
+                            <option value="true">Sí</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(variantDiv);
+        }
+
+        function removeVariant(id) {
+            const variant = document.getElementById(`variant-${id}`);
+            if (variant) {
+                variant.remove();
+            }
+        }
+
+        function calculateVariantProfit(variantId) {
+            const costPriceInput = document.querySelector(`.variant-cost-price[data-variant="${variantId}"]`);
+            const salePriceInput = document.querySelector(`.variant-sale-price[data-variant="${variantId}"]`);
+            const profitInput = document.querySelector(`.variant-profit[data-variant="${variantId}"]`);
+
+            const costPrice = parseFloat(costPriceInput.value) || 0;
+            const salePrice = parseFloat(salePriceInput.value) || 0;
+
+            if (costPrice && salePrice) {
+                const profit = salePrice - costPrice;
+                const percentage = costPrice > 0 ? ((profit / costPrice) * 100).toFixed(2) : 0;
+                profitInput.value = `$${profit.toFixed(2)} (${percentage}%)`;
+            }
+        }
+
+        function calculateProfit() {
+            const costPrice = parseFloat(document.getElementById('simpleCostPrice').value) || 0;
+            const salePrice = parseFloat(document.getElementById('simpleSalePrice').value) || 0;
+
+            if (costPrice && salePrice) {
+                const profit = salePrice - costPrice;
+                const percentage = costPrice > 0 ? ((profit / costPrice) * 100).toFixed(2) : 0;
+                document.getElementById('simpleProfit').value = `$${profit.toFixed(2)} (${percentage}%)`;
+            }
+        }
+
+        async function loadProducts() {
+            showLoading(true);
+            try {
+                const data = await api.getProducts();
+                const products = data.products || data || [];
+                const tbody = document.getElementById('productsBody');
+                tbody.innerHTML = '';
+
+                products.forEach(product => {
+                    // Manejar categoría de producto directo o desde subcategoría
+                    let categoryName = 'N/A';
+                    if (product.category?.name) {
+                        categoryName = product.category.name;
+                    } else if (product.subCategory?.category?.name) {
+                        categoryName = product.subCategory.category.name;
+                    }
+
+                    const brandName = product.brand?.name || 'N/A';
+
+                    // Obtener precio según el tipo de producto
+                    let price = 0;
+                    if (product.productType === 'simple' && product.simpleProduct?.pricing?.salePrice) {
+                        price = product.simpleProduct.pricing.salePrice;
+                    } else if (product.pricing?.salePrice) {
+                        price = product.pricing.salePrice;
+                    } else if (product.price) {
+                        price = product.price;
+                    }
+
+                    // Obtener stock según el tipo de producto
+                    let stock = 0;
+                    if (product.productType === 'simple' && product.simpleProduct?.stock !== undefined) {
+                        stock = product.simpleProduct.stock;
+                    } else if (product.stock !== undefined) {
+                        stock = product.stock;
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${product.name}</td>
+                        <td>${categoryName}</td>
+                        <td>${brandName}</td>
+                        <td>${formatCurrency(price)}</td>
+                        <td>${stock}</td>
+                        <td><span class="badge badge-${product.estado !== false ? 'success' : 'danger'}">${product.estado !== false ? 'Activo' : 'Inactivo'}</span></td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="editProduct('${product._id}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${product._id}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay productos registrados</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                showAlert('Error al cargar los productos: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function openCreateModal() {
+            currentProductId = null;
+            document.getElementById('modalTitle').textContent = 'Nuevo Producto';
+            document.getElementById('productForm').reset();
+            document.getElementById('productType').value = 'simple';
+            toggleProductType();
+            // Limpiar variantes
+            document.getElementById('variantsContainer').innerHTML = '';
+            variantCounter = 0;
+            await loadCategoriesData();
+            document.getElementById('productModal').classList.add('active');
+        }
+
+        async function editProduct(id) {
+            currentProductId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Producto';
+
+            try {
+                await loadCategoriesData();
+                const product = await api.getProduct(id);
+
+                if (product) {
+                    // Información básica
+                    document.getElementById('productName').value = product.name || '';
+                    document.getElementById('productModel').value = product.model || '';
+                    document.getElementById('productDescription').value = product.description || '';
+                    document.getElementById('productBrand').value = product.brand?._id || product.brand || '';
+
+                    // Categorización
+                    document.getElementById('productCategory').value = product.category?._id || product.category || '';
+
+                    // Cargar subcategorías y filtros
+                    await loadSubcategoriesByCategory();
+
+                    setTimeout(() => {
+                        document.getElementById('productSubcategory').value = product.subCategory?._id || product.subCategory || '';
+                    }, 100);
+
+                    // Cargar filtros seleccionados
+                    selectedFilters = [];
+                    const customFilters = [];
+
+                    if (product.filters && Array.isArray(product.filters)) {
+                        // Separar filtros del sistema de los personalizados
+                        product.filters.forEach(filterName => {
+                            const existsInAvailable = availableFilters.some(f => f.name === filterName);
+                            if (existsInAvailable) {
+                                selectedFilters.push(filterName);
+                            } else {
+                                customFilters.push(filterName);
+                            }
+                        });
+
+                        // Los filtros personalizados se ponen en el input de texto
+                        document.getElementById('productFilters').value = customFilters.join(', ');
+
+                        // Re-renderizar los filtros del sistema
+                        if (availableFilters.length > 0) {
+                            renderFilters();
+                        }
+                    }
+
+                    // Base Price
+                    document.getElementById('basePrice').value = product.basePrice || '';
+
+                    // Multimedia
+                    document.getElementById('productImage').value = product.img || '';
+                    if (product.images && Array.isArray(product.images)) {
+                        document.getElementById('productImages').value = product.images.join(', ');
+                    }
+                    document.getElementById('productVideo').value = product.urlVideo || '';
+
+                    // Disponibilidad
+                    document.getElementById('deliveryTime').value = product.deliveryTime || '';
+                    document.getElementById('productAvailable').value = product.available !== false ? 'true' : 'false';
+                    document.getElementById('productStatus').value = product.estado !== false ? 'true' : 'false';
+
+                    // Details
+                    if (product.details) {
+                        if (product.details.specifications) {
+                            document.getElementById('productSpecifications').value = JSON.stringify(product.details.specifications, null, 2);
+                        }
+                        if (product.details.features && Array.isArray(product.details.features)) {
+                            document.getElementById('productFeatures').value = product.details.features.join(', ');
+                        }
+                        document.getElementById('productCareInstructions').value = product.details.careInstructions || '';
+                    }
+
+                    // Tipo de producto
+                    document.getElementById('productType').value = product.productType || 'simple';
+                    toggleProductType();
+
+                    // Puntos (generales)
+                    document.getElementById('earnPoints').value = product.points?.earnPoints || 0;
+                    document.getElementById('redeemPoints').value = product.points?.redeemPoints || 0;
+
+                    // Datos según tipo de producto
+                    if (product.productType === 'simple' && product.simpleProduct) {
+                        document.getElementById('simpleCostPrice').value = product.simpleProduct.pricing?.costPrice || 0;
+                        document.getElementById('simpleSalePrice').value = product.simpleProduct.pricing?.salePrice || 0;
+                        document.getElementById('simpleCommission').value = product.simpleProduct.pricing?.commission || 0;
+                        document.getElementById('simpleStock').value = product.simpleProduct.stock || 0;
+                        document.getElementById('simpleBarcode').value = product.simpleProduct.barcode || '';
+                        calculateProfit();
+                    } else if (product.productType === 'variable' && product.variants && product.variants.length > 0) {
+                        // Limpiar variantes existentes
+                        document.getElementById('variantsContainer').innerHTML = '';
+                        variantCounter = 0;
+
+                        // Cargar variantes existentes
+                        product.variants.forEach(variant => {
+                            addVariant();
+                            const currentVariant = variantCounter;
+
+                            document.querySelector(`.variant-sku[data-variant="${currentVariant}"]`).value = variant.sku || '';
+                            document.querySelector(`.variant-color-name[data-variant="${currentVariant}"]`).value = variant.color?.name || '';
+                            document.querySelector(`.variant-color-code[data-variant="${currentVariant}"]`).value = variant.color?.code || '';
+                            document.querySelector(`.variant-size[data-variant="${currentVariant}"]`).value = variant.size || '';
+                            document.querySelector(`.variant-length[data-variant="${currentVariant}"]`).value = variant.measurements?.length || '';
+                            document.querySelector(`.variant-width[data-variant="${currentVariant}"]`).value = variant.measurements?.width || '';
+                            if (variant.measurements?.custom) {
+                                document.querySelector(`.variant-custom-measurements[data-variant="${currentVariant}"]`).value = JSON.stringify(variant.measurements.custom, null, 2);
+                            }
+                            document.querySelector(`.variant-cost-price[data-variant="${currentVariant}"]`).value = variant.pricing?.costPrice || 0;
+                            document.querySelector(`.variant-sale-price[data-variant="${currentVariant}"]`).value = variant.pricing?.salePrice || 0;
+                            document.querySelector(`.variant-commission[data-variant="${currentVariant}"]`).value = variant.pricing?.commission || 0;
+                            document.querySelector(`.variant-stock[data-variant="${currentVariant}"]`).value = variant.stock || 0;
+                            document.querySelector(`.variant-barcode[data-variant="${currentVariant}"]`).value = variant.barcode || '';
+                            document.querySelector(`.variant-earn-points[data-variant="${currentVariant}"]`).value = variant.points?.earnPoints || 0;
+                            document.querySelector(`.variant-redeem-points[data-variant="${currentVariant}"]`).value = variant.points?.redeemPoints || 0;
+                            if (variant.images && Array.isArray(variant.images)) {
+                                document.querySelector(`.variant-images[data-variant="${currentVariant}"]`).value = variant.images.join(', ');
+                            }
+                            document.querySelector(`.variant-available[data-variant="${currentVariant}"]`).value = variant.available !== false ? 'true' : 'false';
+
+                            calculateVariantProfit(currentVariant);
+                        });
+                    }
+
+                    document.getElementById('productModal').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Error al cargar el producto:', error);
+                showAlert('Error al cargar el producto: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+                return;
+            }
+
+            try {
+                await api.deleteProduct(id);
+                showAlert('Producto eliminado exitosamente', 'success');
+                loadProducts();
+            } catch (error) {
+                showAlert(error.message || 'Error al eliminar el producto', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').classList.remove('active');
+            document.getElementById('productForm').reset();
+            document.getElementById('variantsContainer').innerHTML = '';
+            document.getElementById('mainImagePreview').innerHTML = '';
+            document.getElementById('additionalImagesPreview').innerHTML = '';
+            selectedFilters = [];
+            availableFilters = [];
+            document.getElementById('filtersSection').style.display = 'none';
+            document.getElementById('availableFilters').innerHTML = '<small style="color: #888;">Selecciona una categoría para ver los filtros disponibles</small>';
+            variantCounter = 0;
+            currentProductId = null;
+        }
+
+        // Vista previa de imagen principal
+        function previewMainImage(input) {
+            const preview = document.getElementById('mainImagePreview');
+            preview.innerHTML = '';
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'position: relative; display: inline-block;';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                        <button type="button" onclick="clearMainImage()" style="position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer;">&times;</button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearMainImage() {
+            document.getElementById('productImageFile').value = '';
+            document.getElementById('mainImagePreview').innerHTML = '';
+        }
+
+        // Vista previa de imágenes adicionales
+        function previewAdditionalImages(input) {
+            const preview = document.getElementById('additionalImagesPreview');
+            preview.innerHTML = '';
+
+            if (input.files) {
+                Array.from(input.files).forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'position: relative;';
+                        div.innerHTML = `
+                            <img src="${e.target.result}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid #ddd;">
+                            <button type="button" onclick="removeAdditionalImage(${index})" style="position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px;">&times;</button>
+                        `;
+                        preview.appendChild(div);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function removeAdditionalImage(index) {
+            const input = document.getElementById('productImagesFiles');
+            const dt = new DataTransfer();
+            const files = Array.from(input.files);
+
+            files.forEach((file, i) => {
+                if (i !== index) dt.items.add(file);
+            });
+
+            input.files = dt.files;
+            previewAdditionalImages(input);
+        }
+
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveProductBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            const productType = document.getElementById('productType').value;
+            const category = document.getElementById('productCategory').value.trim();
+            const subcategory = document.getElementById('productSubcategory').value.trim();
+
+            // Validación: debe tener categoría O subcategoría (no ambos, no ninguno)
+            if (!category && !subcategory) {
+                showAlert('Debe seleccionar una categoría O una subcategoría', 'error');
+                return;
+            }
+
+            if (category && subcategory) {
+                showAlert('No puede seleccionar categoría Y subcategoría al mismo tiempo', 'error');
+                return;
+            }
+
+            // Validación: marca es requerida
+            const brand = document.getElementById('productBrand').value;
+            if (!brand) {
+                showAlert('La marca es obligatoria', 'error');
+                return;
+            }
+
+            // Combinar filtros: los seleccionados del sistema + los personalizados
+            const customFiltersText = document.getElementById('productFilters').value.trim();
+            const customFilters = customFiltersText ? customFiltersText.split(',').map(f => f.trim()).filter(f => f) : [];
+            const allFilters = [...selectedFilters, ...customFilters];
+
+            // Parsear imágenes adicionales
+            const imagesText = document.getElementById('productImages').value.trim();
+            const images = imagesText ? imagesText.split(',').map(img => img.trim()).filter(img => img) : [];
+
+            // Construir objeto de producto
+            const productData = {
+                name: document.getElementById('productName').value.trim(),
+                productType: productType,
+                brand: brand,
+                description: document.getElementById('productDescription').value.trim() || undefined,
+                model: document.getElementById('productModel').value.trim() || undefined,
+                filters: allFilters.length > 0 ? allFilters : undefined,
+                basePrice: parseFloat(document.getElementById('basePrice').value) || undefined,
+                img: document.getElementById('productImage').value.trim() || undefined,
+                images: images.length > 0 ? images : undefined,
+                urlVideo: document.getElementById('productVideo').value.trim() || undefined,
+                deliveryTime: document.getElementById('deliveryTime').value.trim() || undefined,
+                available: document.getElementById('productAvailable').value === 'true',
+                estado: document.getElementById('productStatus').value === 'true',
+                points: {
+                    earnPoints: parseFloat(document.getElementById('earnPoints').value) || 0,
+                    redeemPoints: parseFloat(document.getElementById('redeemPoints').value) || 0
+                }
+            };
+
+            // Agregar details si hay datos
+            const specsText = document.getElementById('productSpecifications').value.trim();
+            const featuresText = document.getElementById('productFeatures').value.trim();
+            const careInstructions = document.getElementById('productCareInstructions').value.trim();
+
+            if (specsText || featuresText || careInstructions) {
+                productData.details = {};
+
+                if (specsText) {
+                    try {
+                        productData.details.specifications = JSON.parse(specsText);
+                    } catch (e) {
+                        showAlert('Error en el formato JSON de especificaciones', 'error');
+                        return;
+                    }
+                }
+
+                if (featuresText) {
+                    productData.details.features = featuresText.split(',').map(f => f.trim()).filter(f => f);
+                }
+
+                if (careInstructions) {
+                    productData.details.careInstructions = careInstructions;
+                }
+            }
+
+            // Agregar categoría o subcategoría
+            if (category) {
+                productData.category = category;
+            } else if (subcategory) {
+                productData.subCategory = subcategory;
+            }
+
+            // Agregar datos según el tipo de producto
+            if (productType === 'simple') {
+                const costPrice = parseFloat(document.getElementById('simpleCostPrice').value);
+                const salePrice = parseFloat(document.getElementById('simpleSalePrice').value);
+
+                if (!costPrice || !salePrice) {
+                    showAlert('Precio de costo y precio de venta son obligatorios para productos simples', 'error');
+                    return;
+                }
+
+                productData.simpleProduct = {
+                    pricing: {
+                        costPrice: costPrice,
+                        salePrice: salePrice,
+                        commission: parseFloat(document.getElementById('simpleCommission').value) || 0
+                    },
+                    stock: parseInt(document.getElementById('simpleStock').value) || 0,
+                    quantity: parseInt(document.getElementById('simpleStock').value) || 0,
+                    barcode: document.getElementById('simpleBarcode').value.trim() || undefined
+                };
+            } else if (productType === 'variant') {
+                // Recolectar todas las variantes
+                const variants = [];
+                const variantSkus = document.querySelectorAll('.variant-sku');
+
+                if (variantSkus.length === 0) {
+                    showAlert('Debe agregar al menos una variante', 'error');
+                    return;
+                }
+
+                variantSkus.forEach(skuInput => {
+                    const variantId = skuInput.getAttribute('data-variant');
+                    const sku = skuInput.value.trim();
+
+                    if (!sku) {
+                        showAlert('Todas las variantes deben tener un SKU', 'error');
+                        return;
+                    }
+
+                    const colorName = document.querySelector(`.variant-color-name[data-variant="${variantId}"]`).value.trim();
+                    const colorCode = document.querySelector(`.variant-color-code[data-variant="${variantId}"]`).value.trim();
+                    const size = document.querySelector(`.variant-size[data-variant="${variantId}"]`).value.trim();
+                    const length = parseFloat(document.querySelector(`.variant-length[data-variant="${variantId}"]`).value);
+                    const width = parseFloat(document.querySelector(`.variant-width[data-variant="${variantId}"]`).value);
+                    const customMeasText = document.querySelector(`.variant-custom-measurements[data-variant="${variantId}"]`).value.trim();
+                    const costPrice = parseFloat(document.querySelector(`.variant-cost-price[data-variant="${variantId}"]`).value);
+                    const salePrice = parseFloat(document.querySelector(`.variant-sale-price[data-variant="${variantId}"]`).value);
+                    const commission = parseFloat(document.querySelector(`.variant-commission[data-variant="${variantId}"]`).value) || 0;
+                    const stock = parseInt(document.querySelector(`.variant-stock[data-variant="${variantId}"]`).value) || 0;
+                    const barcode = document.querySelector(`.variant-barcode[data-variant="${variantId}"]`).value.trim();
+                    const earnPoints = parseInt(document.querySelector(`.variant-earn-points[data-variant="${variantId}"]`).value) || 0;
+                    const redeemPoints = parseInt(document.querySelector(`.variant-redeem-points[data-variant="${variantId}"]`).value) || 0;
+                    const imagesText = document.querySelector(`.variant-images[data-variant="${variantId}"]`).value.trim();
+                    const variantImages = imagesText ? imagesText.split(',').map(img => img.trim()).filter(img => img) : [];
+                    const available = document.querySelector(`.variant-available[data-variant="${variantId}"]`).value === 'true';
+
+                    if (!costPrice || !salePrice) {
+                        showAlert('Todas las variantes deben tener precio de costo y precio de venta', 'error');
+                        return;
+                    }
+
+                    const variant = {
+                        sku: sku,
+                        pricing: {
+                            costPrice: costPrice,
+                            salePrice: salePrice,
+                            commission: commission
+                        },
+                        stock: stock,
+                        available: available
+                    };
+
+                    // Agregar color solo si tiene valores
+                    if (colorName || colorCode) {
+                        variant.color = {};
+                        if (colorName) variant.color.name = colorName;
+                        if (colorCode) variant.color.code = colorCode;
+                    }
+
+                    // Agregar size solo si tiene valor
+                    if (size) {
+                        variant.size = size;
+                    }
+
+                    // Agregar measurements si hay datos
+                    if (length || width || customMeasText) {
+                        variant.measurements = {};
+                        if (length) variant.measurements.length = length;
+                        if (width) variant.measurements.width = width;
+
+                        if (customMeasText) {
+                            try {
+                                variant.measurements.custom = JSON.parse(customMeasText);
+                            } catch (e) {
+                                showAlert(`Error en JSON de medidas personalizadas de variante ${sku}`, 'error');
+                                return;
+                            }
+                        }
+                    }
+
+                    // Agregar puntos
+                    variant.points = {
+                        earnPoints: earnPoints,
+                        redeemPoints: redeemPoints
+                    };
+
+                    // Agregar barcode solo si tiene valor
+                    if (barcode) {
+                        variant.barcode = barcode;
+                    }
+
+                    // Agregar imágenes solo si tiene valores
+                    if (variantImages.length > 0) {
+                        variant.images = variantImages;
+                    }
+
+                    variants.push(variant);
+                });
+
+                if (variants.length === 0) {
+                    showAlert('Debe agregar al menos una variante válida', 'error');
+                    return;
+                }
+
+                productData.variants = variants;
+            }
+
+            try {
+                // Verificar si hay archivos de imagen
+                const mainImageFile = document.getElementById('productImageFile').files[0];
+                const additionalImagesFiles = document.getElementById('productImagesFiles').files;
+                const hasFiles = mainImageFile || (additionalImagesFiles && additionalImagesFiles.length > 0);
+
+                if (currentProductId) {
+                    // Si es actualización, usar método tradicional
+                    await api.updateProduct(currentProductId, productData);
+                    showAlert('Producto actualizado exitosamente', 'success');
+                } else {
+                    // Si es creación y tiene archivos, usar FormData
+                    if (hasFiles) {
+                        const formData = new FormData();
+
+                        // Agregar archivo de imagen principal
+                        if (mainImageFile) {
+                            formData.append('img', mainImageFile);
+                        }
+
+                        // Agregar archivos de imágenes adicionales
+                        if (additionalImagesFiles && additionalImagesFiles.length > 0) {
+                            Array.from(additionalImagesFiles).forEach(file => {
+                                formData.append('images', file);
+                            });
+                        }
+
+                        // Agregar todos los demás datos del producto como JSON string o campos individuales
+                        // Opción 1: Enviar cada campo por separado
+                        formData.append('name', productData.name);
+                        formData.append('productType', productData.productType);
+                        formData.append('brand', productData.brand);
+                        if (productData.description) formData.append('description', productData.description);
+                        if (productData.model) formData.append('model', productData.model);
+                        if (productData.filters) formData.append('filters', JSON.stringify(productData.filters));
+                        if (productData.basePrice) formData.append('basePrice', productData.basePrice);
+                        if (productData.urlVideo) formData.append('urlVideo', productData.urlVideo);
+                        if (productData.deliveryTime) formData.append('deliveryTime', productData.deliveryTime);
+                        formData.append('available', productData.available);
+                        formData.append('estado', productData.estado);
+                        formData.append('points', JSON.stringify(productData.points));
+
+                        if (productData.details) formData.append('details', JSON.stringify(productData.details));
+                        if (productData.category) formData.append('category', productData.category);
+                        if (productData.subCategory) formData.append('subCategory', productData.subCategory);
+
+                        if (productData.simpleProduct) {
+                            formData.append('simpleProduct', JSON.stringify(productData.simpleProduct));
+                        }
+                        if (productData.variants) {
+                            formData.append('variants', JSON.stringify(productData.variants));
+                        }
+
+                        await api.createProductWithFiles(formData);
+                        showAlert('Producto creado exitosamente con imágenes', 'success');
+                    } else {
+                        // Si no hay archivos, usar método tradicional JSON
+                        await api.createProduct(productData);
+                        showAlert('Producto creado exitosamente', 'success');
+                    }
+                }
+
+                closeModal();
+                loadProducts();
+            } catch (error) {
+                console.error('Error al guardar producto:', error);
+                showAlert(error.message || 'Error al guardar el producto', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+        document.getElementById('productModal').addEventListener('click', (e) => {
+            if (e.target.id === 'productModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadProducts();
+    </script>
+</body>
+
+</html>

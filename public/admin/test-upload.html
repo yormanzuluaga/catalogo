@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Subir Imágenes de Producto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        input[type="file"]:hover {
+            background: #eef0ff;
+            border-color: #5568d3;
+        }
+
+        .preview-container {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+
+        .preview-item {
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .preview-item img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            border: 3px solid #667eea;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.5);
+            transition: all 0.3s;
+        }
+
+        .remove-btn:hover {
+            background: #ff3838;
+            transform: scale(1.1);
+        }
+
+        .grid-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .grid-preview .preview-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+
+        .btn {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+
+        .required {
+            color: #ff4757;
+        }
+
+        small {
+            display: block;
+            margin-top: 5px;
+            color: #888;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📦 Test - Crear Producto con Imágenes</h1>
+        <p class="subtitle">Prueba rápida de subida de imágenes</p>
+
+        <div id="alertContainer"></div>
+
+        <form id="productForm">
+            <div class="form-group">
+                <label>Nombre del Producto <span class="required">*</span></label>
+                <input type="text" id="productName" required placeholder="Ej: Labial Rojo Intenso">
+            </div>
+
+            <div class="form-group">
+                <label>Marca (ID) <span class="required">*</span></label>
+                <input type="text" id="productBrand" required placeholder="Pega el ID de una marca existente">
+                <small>Obtén un ID de marca desde el panel de administración</small>
+            </div>
+
+            <div class="form-group">
+                <label>Categoría (ID) <span class="required">*</span></label>
+                <input type="text" id="productCategory" required placeholder="Pega el ID de una categoría">
+                <small>Debe ser una categoría O subcategoría válida</small>
+            </div>
+
+            <div class="form-group">
+                <label>Precio de Costo <span class="required">*</span></label>
+                <input type="number" id="costPrice" step="0.01" required placeholder="0.00">
+            </div>
+
+            <div class="form-group">
+                <label>Precio de Venta <span class="required">*</span></label>
+                <input type="number" id="salePrice" step="0.01" required placeholder="0.00">
+            </div>
+
+            <div class="form-group">
+                <label>🖼️ Imagen Principal</label>
+                <input type="file" id="mainImage" accept="image/*" onchange="previewMainImage()">
+                <div id="mainImagePreview" class="preview-container"></div>
+            </div>
+
+            <div class="form-group">
+                <label>🖼️ Imágenes Adicionales</label>
+                <input type="file" id="additionalImages" accept="image/*" multiple onchange="previewAdditionalImages()">
+                <small>Puedes seleccionar múltiples imágenes (Ctrl/Cmd + Click)</small>
+                <div id="additionalImagesPreview" class="preview-container grid-preview"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">✅ Crear Producto</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let token = localStorage.getItem('adminToken') || '';
+
+        // Si no hay token, pedir al usuario
+        if (!token) {
+            token = prompt('Por favor ingresa tu token de autenticación:');
+            if (token) {
+                localStorage.setItem('adminToken', token);
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function previewMainImage() {
+            const input = document.getElementById('mainImage');
+            const preview = document.getElementById('mainImagePreview');
+            preview.innerHTML = '';
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const div = document.createElement('div');
+                    div.className = 'preview-item';
+                    div.innerHTML = `
+                        <img src="${e.target.result}">
+                        <button type="button" class="remove-btn" onclick="clearMainImage()">×</button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearMainImage() {
+            document.getElementById('mainImage').value = '';
+            document.getElementById('mainImagePreview').innerHTML = '';
+        }
+
+        function previewAdditionalImages() {
+            const input = document.getElementById('additionalImages');
+            const preview = document.getElementById('additionalImagesPreview');
+            preview.innerHTML = '';
+
+            if (input.files) {
+                Array.from(input.files).forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const div = document.createElement('div');
+                        div.className = 'preview-item';
+                        div.innerHTML = `
+                            <img src="${e.target.result}">
+                            <button type="button" class="remove-btn" onclick="removeAdditionalImage(${index})">×</button>
+                        `;
+                        preview.appendChild(div);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function removeAdditionalImage(index) {
+            const input = document.getElementById('additionalImages');
+            const dt = new DataTransfer();
+            const files = Array.from(input.files);
+
+            files.forEach((file, i) => {
+                if (i !== index) dt.items.add(file);
+            });
+
+            input.files = dt.files;
+            previewAdditionalImages();
+        }
+
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+
+            // Datos del producto
+            formData.append('name', document.getElementById('productName').value);
+            formData.append('brand', document.getElementById('productBrand').value);
+            formData.append('category', document.getElementById('productCategory').value);
+            formData.append('productType', 'simple');
+            formData.append('estado', 'true');
+            formData.append('available', 'true');
+
+            // Datos de precios (simpleProduct)
+            const simpleProduct = {
+                pricing: {
+                    costPrice: parseFloat(document.getElementById('costPrice').value),
+                    salePrice: parseFloat(document.getElementById('salePrice').value),
+                    commission: 0
+                },
+                stock: 0,
+                quantity: 0
+            };
+            formData.append('simpleProduct', JSON.stringify(simpleProduct));
+
+            // Puntos
+            formData.append('points', JSON.stringify({ earnPoints: 0, redeemPoints: 0 }));
+
+            // Imagen principal
+            const mainImage = document.getElementById('mainImage').files[0];
+            if (mainImage) {
+                formData.append('img', mainImage);
+            }
+
+            // Imágenes adicionales
+            const additionalImages = document.getElementById('additionalImages').files;
+            if (additionalImages.length > 0) {
+                Array.from(additionalImages).forEach(file => {
+                    formData.append('images', file);
+                });
+            }
+
+            try {
+                showAlert('⏳ Subiendo producto con imágenes...', 'info');
+
+                const response = await fetch(`${API_URL}/products`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.msg || data.message || 'Error al crear producto');
+                }
+
+                showAlert('✅ ¡Producto creado exitosamente con imágenes!', 'success');
+                console.log('Producto creado:', data);
+
+                // Limpiar formulario
+                document.getElementById('productForm').reset();
+                document.getElementById('mainImagePreview').innerHTML = '';
+                document.getElementById('additionalImagesPreview').innerHTML = '';
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('❌ Error: ' + error.message, 'error');
+            }
+        });
+    </script>
+</body>
+
+</html>

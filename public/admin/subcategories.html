@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subcategorías - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Subcategorías</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Subcategorías</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ Nueva Subcategoría</button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Descripción</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subcategoriesBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="subcategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nueva Subcategoría</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="subcategoryForm">
+                <div class="form-group">
+                    <label for="subcategoryName">Nombre *</label>
+                    <input type="text" id="subcategoryName" required placeholder="Ej: Sombras, Labiales, Cremas">
+                </div>
+                <div class="form-group">
+                    <label for="subcategoryCategory">Categoría Padre *</label>
+                    <select id="subcategoryCategory" required>
+                        <option value="">Selecciona una categoría</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Categoría a la que pertenece esta
+                        subcategoría</small>
+                </div>
+                <div class="form-group">
+                    <label for="subcategoryDescription">Descripción *</label>
+                    <textarea id="subcategoryDescription" rows="3" required
+                        placeholder="Describe esta subcategoría..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="subcategoryImageFile">Imagen</label>
+                    <input type="file" id="subcategoryImageFile" accept="image/*" onchange="previewSubcategoryImage()">
+                    <div id="subcategoryImagePreview" style="margin-top: 10px; display: none;">
+                        <img id="subcategoryPreviewImg" src="" alt="Vista previa"
+                            style="max-width: 200px; max-height: 200px; object-fit: contain; border-radius: 8px; border: 2px solid #ddd;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="clearSubcategoryImage()"
+                            style="display: block; margin-top: 10px;">Eliminar imagen</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="subcategoryStatus">Estado</label>
+                    <select id="subcategoryStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveSubcategoryBtn" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentSubcategoryId = null;
+        let categories = [];
+
+        async function loadCategories() {
+            try {
+                const data = await api.getCategories();
+                categories = data.category || data.categories || [];
+
+                const select = document.getElementById('subcategoryCategory');
+                select.innerHTML = '<option value="">Selecciona una categoría</option>';
+
+                categories.forEach(category => {
+                    if (category.estado !== false) {
+                        const option = document.createElement('option');
+                        option.value = category._id;
+                        option.textContent = category.name;
+                        select.appendChild(option);
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+        async function loadSubcategories() {
+            showLoading(true);
+            try {
+                const data = await api.getSubcategories();
+                const subcategories = data.subCategories || data.subcategories || [];
+                const tbody = document.getElementById('subcategoriesBody');
+                tbody.innerHTML = '';
+
+                subcategories.forEach(subcategory => {
+                    const categoryName = subcategory.category?.name || 'N/A';
+                    const imageUrl = subcategory.img || '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${imageUrl ? `<img src="${imageUrl}" alt="${subcategory.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">` : 'Sin imagen'}</td>
+                        <td>${subcategory.name}</td>
+                        <td>${categoryName}</td>
+                        <td>${subcategory.description || 'N/A'}</td>
+                        <td><span class="badge badge-${subcategory.estado !== false ? 'success' : 'danger'}">${subcategory.estado !== false ? 'Activo' : 'Inactivo'}</span></td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="editSubcategory('${subcategory._id}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteSubcategory('${subcategory._id}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (subcategories.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay subcategorías registradas</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading subcategories:', error);
+                showAlert('Error al cargar las subcategorías', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function openCreateModal() {
+            currentSubcategoryId = null;
+            document.getElementById('modalTitle').textContent = 'Nueva Subcategoría';
+            document.getElementById('subcategoryForm').reset();
+            clearSubcategoryImage();
+            await loadCategories();
+            document.getElementById('subcategoryModal').classList.add('active');
+        }
+
+        async function editSubcategory(id) {
+            currentSubcategoryId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Subcategoría';
+
+            try {
+                await loadCategories();
+                const data = await api.getSubcategories();
+                const subcategory = data.subcategories.find(s => s._id === id);
+
+                if (subcategory) {
+                    document.getElementById('subcategoryName').value = subcategory.name;
+                    document.getElementById('subcategoryCategory').value = subcategory.category?._id || subcategory.category;
+                    document.getElementById('subcategoryDescription').value = subcategory.description || '';
+                    document.getElementById('subcategoryStatus').value = subcategory.estado !== false ? 'true' : 'false';
+
+                    // Mostrar imagen existente si hay
+                    if (subcategory.img) {
+                        const preview = document.getElementById('subcategoryImagePreview');
+                        const previewImg = document.getElementById('subcategoryPreviewImg');
+                        previewImg.src = subcategory.img;
+                        preview.style.display = 'block';
+
+                        // Agregar etiqueta de imagen actual
+                        if (!document.getElementById('currentImageLabel')) {
+                            const label = document.createElement('small');
+                            label.id = 'currentImageLabel';
+                            label.style.display = 'block';
+                            label.style.marginBottom = '5px';
+                            label.style.color = '#666';
+                            label.textContent = 'Imagen actual:';
+                            preview.insertBefore(label, previewImg);
+                        }
+                    }
+
+                    document.getElementById('subcategoryModal').classList.add('active');
+                }
+            } catch (error) {
+                showAlert('Error al cargar la subcategoría', 'error');
+            }
+        }
+
+        async function deleteSubcategory(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta subcategoría?')) {
+                return;
+            }
+
+            try {
+                await api.deleteSubcategory(id);
+                showAlert('Subcategoría eliminada exitosamente', 'success');
+                loadSubcategories();
+            } catch (error) {
+                showAlert(error.message || 'Error al eliminar la subcategoría', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('subcategoryModal').classList.remove('active');
+            document.getElementById('subcategoryForm').reset();
+            clearSubcategoryImage();
+            currentSubcategoryId = null;
+        }
+
+        document.getElementById('subcategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveSubcategoryBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            const fileInput = document.getElementById('subcategoryImageFile');
+            const hasFile = fileInput.files && fileInput.files.length > 0;
+
+            try {
+                if (hasFile) {
+                    // Usar FormData si hay archivo
+                    const formData = new FormData();
+                    formData.append('name', document.getElementById('subcategoryName').value.trim());
+                    formData.append('category', document.getElementById('subcategoryCategory').value);
+                    formData.append('description', document.getElementById('subcategoryDescription').value.trim());
+                    formData.append('estado', document.getElementById('subcategoryStatus').value);
+                    formData.append('img', fileInput.files[0]);
+
+                    if (currentSubcategoryId) {
+                        await api.updateSubcategoryWithFile(currentSubcategoryId, formData);
+                        showAlert('Subcategoría actualizada exitosamente', 'success');
+                    } else {
+                        await api.createSubcategoryWithFile(formData);
+                        showAlert('Subcategoría creada exitosamente', 'success');
+                    }
+                } else {
+                    // Usar JSON si no hay archivo
+                    const subcategoryData = {
+                        name: document.getElementById('subcategoryName').value.trim(),
+                        category: document.getElementById('subcategoryCategory').value,
+                        description: document.getElementById('subcategoryDescription').value.trim(),
+                        estado: document.getElementById('subcategoryStatus').value === 'true'
+                    };
+
+                    if (currentSubcategoryId) {
+                        await api.updateSubcategory(currentSubcategoryId, subcategoryData);
+                        showAlert('Subcategoría actualizada exitosamente', 'success');
+                    } else {
+                        await api.createSubcategory(subcategoryData);
+                        showAlert('Subcategoría creada exitosamente', 'success');
+                    }
+                }
+
+                closeModal();
+                loadSubcategories();
+            } catch (error) {
+                showAlert(error.message || 'Error al guardar la subcategoría', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+        document.getElementById('subcategoryModal').addEventListener('click', (e) => {
+            if (e.target.id === 'subcategoryModal') {
+                closeModal();
+            }
+        });
+
+        // Funciones de preview de imagen
+        function previewSubcategoryImage() {
+            const fileInput = document.getElementById('subcategoryImageFile');
+            const preview = document.getElementById('subcategoryImagePreview');
+            const previewImg = document.getElementById('subcategoryPreviewImg');
+            const currentLabel = document.getElementById('currentImageLabel');
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                    preview.style.display = 'block';
+                    if (currentLabel) currentLabel.remove();
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        }
+
+        function clearSubcategoryImage() {
+            const fileInput = document.getElementById('subcategoryImageFile');
+            const preview = document.getElementById('subcategoryImagePreview');
+            const currentLabel = document.getElementById('currentImageLabel');
+
+            fileInput.value = '';
+            preview.style.display = 'none';
+            if (currentLabel) currentLabel.remove();
+        }
+
+        // Initialize
+        loadSubcategories();
+    </script>
+</body>
+
+</html>

@@ -10,7 +10,7 @@ const s3Service = new S3Service()
 brandCtrl.getAllBrands = async (req = request, res = response) => {
     try {
         const { limit = 10, from = 0, active = 'true' } = req.query;
-        
+
         // Construir query
         let query = { estado: true };
         if (active === 'true') {
@@ -35,7 +35,7 @@ brandCtrl.getAllBrands = async (req = request, res = response) => {
                     brand: brand._id,
                     estado: true
                 });
-                
+
                 return {
                     ...brand,
                     productCount
@@ -61,7 +61,7 @@ brandCtrl.getAllBrands = async (req = request, res = response) => {
 brandCtrl.getBrand = async (req = request, res = response) => {
     try {
         const { id } = req.params;
-        
+
         const brand = await Brand.findById(id)
             .populate('user', 'firstName')
             .select('name description logo website isActive country founded colors socialMedia contact user createdAt updatedAt')
@@ -98,6 +98,15 @@ brandCtrl.createBrand = async (req = request, res = response) => {
     try {
         const { name, logo, ...body } = req.body;
 
+        // Parsear status/isActive si viene como string desde FormData
+        if (body.status !== undefined) {
+            body.isActive = body.status === 'true' || body.status === true;
+            delete body.status;
+        }
+        if (body.isActive !== undefined && typeof body.isActive === 'string') {
+            body.isActive = body.isActive === 'true';
+        }
+
         // Verificar si la marca ya existe
         const brandDB = await Brand.findOne({ name: name.trim() });
 
@@ -109,7 +118,6 @@ brandCtrl.createBrand = async (req = request, res = response) => {
 
         const data = {
             name: name.trim(),
-            logo: logo,
             user: req.user._id,
             ...body
         };
@@ -125,9 +133,9 @@ brandCtrl.createBrand = async (req = request, res = response) => {
                     error: error.message
                 });
             }
-        } else if (logo) {
+        } else if (logo && logo.trim()) {
             // Si se pasó URL de logo en el body
-            data.logo = logo;
+            data.logo = logo.trim();
         }
 
         const brand = new Brand(data);
@@ -156,6 +164,15 @@ brandCtrl.updateBrand = async (req = request, res = response) => {
     try {
         const { id } = req.params;
         const { estado, user, ...data } = req.body;
+
+        // Parsear status/isActive si viene como string desde FormData
+        if (data.status !== undefined) {
+            data.isActive = data.status === 'true' || data.status === true;
+            delete data.status;
+        }
+        if (data.isActive !== undefined && typeof data.isActive === 'string') {
+            data.isActive = data.isActive === 'true';
+        }
 
         // Obtener la marca actual
         const currentBrand = await Brand.findById(id);
@@ -335,7 +352,7 @@ brandCtrl.addBrandLogo = async (req = request, res = response) => {
 
             // Subir nuevo logo
             const logoUrl = await s3Service.uploadFileFromExpressUpload(req.files.logo, 'brands');
-            
+
             // Actualizar marca con nuevo logo
             brand.logo = logoUrl;
             await brand.save();

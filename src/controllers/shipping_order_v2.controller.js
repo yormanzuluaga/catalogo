@@ -499,6 +499,65 @@ const adminGetAllOrders = async (req = request, res = response) => {
 };
 
 /**
+ * 🔐 ADMIN: OBTENER DETALLE DE CUALQUIER ORDEN
+ * GET /api/shipping-orders-v2/admin/:id
+ */
+const adminGetOrderDetail = async (req = request, res = response) => {
+    try {
+        const { id } = req.params;
+
+        console.log('👨‍💼 ADMIN: Obteniendo detalle de orden:', id);
+
+        const order = await ShippingOrder.findOne({
+            _id: id,
+            estado: true
+        })
+            .populate('seller', 'firstName lastName phone email')
+            .populate('buyer', 'firstName lastName phone email')
+            .populate('shippingAddress')
+            .populate('items.product', 'name images brand model description');
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                msg: 'Orden no encontrada'
+            });
+        }
+
+        res.json({
+            success: true,
+            order: {
+                _id: order._id,
+                orderNumber: order.orderNumber,
+                status: order.status,
+                statusLabel: getStatusLabel(order.status),
+                seller: order.seller,
+                buyer: order.buyer,
+                customer: order.customer,
+                shippingAddress: order.shippingAddress,
+                items: order.items,
+                totalAmount: order.items.reduce((sum, item) => sum + item.totalPrice, 0),
+                commission: order.commission,
+                tracking: order.tracking,
+                payment: order.payment,
+                notes: order.notes,
+                carrier: order.carrier,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error admin al obtener detalle de orden:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al obtener detalle de la orden',
+            error: error.message
+        });
+    }
+};
+
+/**
  * 🔐 ADMIN: ACTUALIZAR ESTADO DE CUALQUIER ORDEN
  * PUT /api/shipping-orders-v2/admin/:id/status
  */
@@ -660,5 +719,6 @@ module.exports = {
     getWalletBalance,
     getPendingOrders,
     adminGetAllOrders,      // 🔐 ADMIN
+    adminGetOrderDetail,    // 🔐 ADMIN
     adminUpdateOrderStatus  // 🔐 ADMIN
 };

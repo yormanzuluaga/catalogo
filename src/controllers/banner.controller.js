@@ -1,6 +1,9 @@
 const { response, request } = require('express');
 const Banner = require('../models/banner.model');
 const Product = require('../models/product.model');
+const S3Service = require('../services/s3.service');
+
+const s3Service = new S3Service();
 
 /**
  * 🆕 CREAR BANNER
@@ -18,10 +21,38 @@ const createBanner = async (req = request, res = response) => {
             startDate,
             endDate,
             action,
-            settings
+            settings,
+            status
         } = req.body;
 
         console.log('📸 Creando banner:', title);
+
+        // Parsear status si viene como string desde FormData
+        let isActive = true;
+        if (status !== undefined) {
+            isActive = status === 'true' || status === true;
+        }
+
+        // Manejar imagen si se envió archivo
+        let finalImageUrl = imageUrl;
+        if (req.files && req.files.archivo) {
+            try {
+                finalImageUrl = await s3Service.uploadFileFromExpressUpload(req.files.archivo, 'banners');
+            } catch (error) {
+                return res.status(400).json({
+                    success: false,
+                    msg: 'Error al subir la imagen',
+                    error: error.message
+                });
+            }
+        }
+
+        if (!finalImageUrl) {
+            return res.status(400).json({
+                success: false,
+                msg: 'La imagen es obligatoria'
+            });
+        }
 
         // Validar productos si se envían
         if (action?.type === 'products' && action?.products?.length > 0) {
@@ -39,14 +70,14 @@ const createBanner = async (req = request, res = response) => {
         const bannerData = {
             title,
             description,
-            imageUrl,
+            imageUrl: finalImageUrl,
             type: type || 'home',
             position: position || 0,
             startDate: startDate || new Date(),
             endDate,
             action: action || { type: 'none' },
             settings: settings || {},
-            isActive: true,
+            isActive,
             createdBy: uid,
             stats: {
                 views: 0,
@@ -316,7 +347,8 @@ const updateBanner = async (req = request, res = response) => {
             endDate,
             action,
             settings,
-            isActive
+            isActive,
+            status
         } = req.body;
 
         console.log('✏️ Actualizando banner:', id);
@@ -330,6 +362,26 @@ const updateBanner = async (req = request, res = response) => {
             });
         }
 
+        // Manejar imagen si se envió archivo nuevo
+        if (req.files && req.files.archivo) {
+            try {
+                // Eliminar imagen anterior si existe
+                if (banner.imageUrl) {
+                    await s3Service.deleteFile(banner.imageUrl);
+                }
+
+                // Subir nueva imagen
+                const newImageUrl = await s3Service.uploadFileFromExpressUpload(req.files.archivo, 'banners');
+                banner.imageUrl = newImageUrl;
+            } catch (error) {
+                return res.status(400).json({
+                    success: false,
+                    msg: 'Error al actualizar la imagen',
+                    error: error.message
+                });
+            }
+        }
+
         // Actualizar campos
         if (title !== undefined) banner.title = title;
         if (description !== undefined) banner.description = description;
@@ -340,7 +392,13 @@ const updateBanner = async (req = request, res = response) => {
         if (endDate !== undefined) banner.endDate = endDate;
         if (action !== undefined) banner.action = action;
         if (settings !== undefined) banner.settings = settings;
-        if (isActive !== undefined) banner.isActive = isActive;
+
+        // Parsear isActive/status si viene como string desde FormData
+        if (status !== undefined) {
+            banner.isActive = status === 'true' || status === true;
+        } else if (isActive !== undefined) {
+            banner.isActive = typeof isActive === 'string' ? isActive === 'true' : isActive;
+        }
 
         await banner.save();
 

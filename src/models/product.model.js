@@ -331,7 +331,7 @@ const ProductSchema = Schema({
     // Tipo de producto
     productType: {
         type: String,
-        enum: ['simple', 'variant'],
+        enum: ['simple', 'variable'],
         default: 'simple'
     }
 }, {
@@ -354,7 +354,7 @@ ProductSchema.pre('validate', function (next) {
     }
 
     // Validar que los SKUs de las variantes sean únicos
-    if (this.productType === 'variant' && this.variants && this.variants.length > 0) {
+    if (this.productType === 'variable' && this.variants && this.variants.length > 0) {
         const skus = this.variants.map(v => v.sku);
         const uniqueSkus = [...new Set(skus)];
         if (skus.length !== uniqueSkus.length) {
@@ -381,7 +381,7 @@ ProductSchema.pre('save', function (next) {
     }
 
     // Calcular ganancia para variantes
-    if (this.productType === 'variant' && this.variants) {
+    if (this.productType === 'variable' && this.variants) {
         this.variants.forEach(variant => {
             if (variant.pricing?.costPrice && variant.pricing?.salePrice) {
                 variant.pricing.profit.amount = variant.pricing.salePrice - variant.pricing.costPrice;
@@ -482,7 +482,7 @@ ProductSchema.methods.getEarnablePoints = function () {
 
 // Método para obtener variante por SKU
 ProductSchema.methods.getVariantBySku = function (sku) {
-    if (this.productType === 'variant' && this.variants) {
+    if (this.productType === 'variable' && this.variants) {
         return this.variants.find(variant => variant.sku === sku);
     }
     return null;
@@ -490,7 +490,7 @@ ProductSchema.methods.getVariantBySku = function (sku) {
 
 // Método para obtener todas las opciones de colores disponibles
 ProductSchema.methods.getAvailableColors = function () {
-    if (this.productType === 'variant' && this.variants) {
+    if (this.productType === 'variable' && this.variants) {
         const colors = this.variants
             .filter(v => v.color && v.color.name && v.available)
             .map(v => v.color);
@@ -507,7 +507,7 @@ ProductSchema.methods.getAvailableColors = function () {
 
 // Método para obtener todas las tallas disponibles
 ProductSchema.methods.getAvailableSizes = function () {
-    if (this.productType === 'variant' && this.variants) {
+    if (this.productType === 'variable' && this.variants) {
         return [...new Set(this.variants
             .filter(v => v.size && v.available)
             .map(v => v.size))];
@@ -557,7 +557,7 @@ ProductSchema.methods.toJSON = function () {
     data.totalProfit = this.getTotalProfit();
     data.earnablePoints = this.getEarnablePoints();
 
-    if (this.productType === 'variant') {
+    if (this.productType === 'variable') {
         data.availableColors = this.getAvailableColors();
         data.availableSizes = this.getAvailableSizes();
         data.variantCount = this.variants ? this.variants.length : 0;

@@ -5,10 +5,28 @@ const { validarCampos } = require('../middlewares/validar_campos');
 const { validarJWT } = require('../middlewares/validar_jwt');
 
 const {
-    createTransactionComplete
+    createTransactionComplete,
+    getAllTransactions,
+    getTransactionById
 } = require('../controllers/transaction_v2.controller');
 
 const router = Router();
+
+/**
+ * 📋 LISTAR TODAS LAS TRANSACCIONES
+ * GET /api/transactions-v2
+ */
+router.get('/', [
+    validarJWT
+], getAllTransactions);
+
+/**
+ * 📄 OBTENER UNA TRANSACCIÓN POR ID
+ * GET /api/transactions-v2/:id
+ */
+router.get('/:id', [
+    validarJWT
+], getTransactionById);
 
 /**
  * 🆕 CREAR TRANSACCIÓN COMPLETA

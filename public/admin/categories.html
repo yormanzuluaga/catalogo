@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categorías - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Categorías</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Categorías</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ Nueva Categoría</button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Nombre</th>
+                                <th>Estado</th>
+                                <th>Fecha Creación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nueva Categoría</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="categoryName">Nombre *</label>
+                    <input type="text" id="categoryName" required placeholder="Ej: Maquillaje, Cuidado de la piel">
+                </div>
+
+                <div class="form-group">
+                    <label for="categoryImageFile">🖼️ Subir Imagen de Categoría</label>
+                    <input type="file" id="categoryImageFile" accept="image/*" onchange="previewCategoryImage(this)">
+                    <small style="display: block; margin-top: 5px; color: #666;">Selecciona una imagen desde tu
+                        computadora (JPG, PNG, GIF)</small>
+                    <div id="categoryImagePreview" style="margin-top: 10px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="categoryImage">📎 O usar URL de Imagen</label>
+                    <input type="url" id="categoryImage" placeholder="https://ejemplo.com/imagen.jpg">
+                    <small style="display: block; margin-top: 5px; color: #666;">Opcional: Si prefieres usar una URL
+                        externa</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="isSubCatalogo">¿Es un subcatálogo?</label>
+                    <select id="isSubCatalogo">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Indica si esta categoría funciona como
+                        subcatálogo</small>
+                </div>
+                <div class="form-group">
+                    <label for="categoryStatus">Estado</label>
+                    <select id="categoryStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveCategoryBtn" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentCategoryId = null;
+
+        async function loadCategories() {
+            showLoading(true);
+            try {
+                const data = await api.getCategories();
+                const categories = data.category || data.categories || [];
+                const tbody = document.getElementById('categoriesBody');
+                tbody.innerHTML = '';
+
+                categories.forEach(category => {
+                    const tr = document.createElement('tr');
+                    const imgHtml = category.img
+                        ? `<img src="${category.img}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+                        : `<div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999;">Sin imagen</div>`;
+
+                    tr.innerHTML = `
+                        <td>${imgHtml}</td>
+                        <td><strong>${category.name}</strong></td>
+                        <td><span class="badge badge-${category.estado !== false ? 'success' : 'danger'}">${category.estado !== false ? 'Activo' : 'Inactivo'}</span></td>
+                        <td>${formatDate(category.createdAt)}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="editCategory('${category._id}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${category._id}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (categories.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay categorías registradas</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                showAlert('Error al cargar las categorías', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function openCreateModal() {
+            currentCategoryId = null;
+            document.getElementById('modalTitle').textContent = 'Nueva Categoría';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryModal').classList.add('active');
+        }
+
+        async function editCategory(id) {
+            currentCategoryId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Categoría';
+
+            try {
+                const data = await api.getCategories();
+                const category = (data.category || data.categories || []).find(c => c._id === id);
+
+                if (category) {
+                    document.getElementById('categoryName').value = category.name;
+                    document.getElementById('categoryImage').value = category.img || '';
+                    document.getElementById('isSubCatalogo').value = category.isSubCatalogo ? 'true' : 'false';
+                    document.getElementById('categoryStatus').value = category.estado !== false ? 'true' : 'false';
+
+                    // Mostrar vista previa de imagen existente
+                    const preview = document.getElementById('categoryImagePreview');
+                    if (category.img) {
+                        preview.innerHTML = `
+                            <div style="position: relative; display: inline-block;">
+                                <img src="${category.img}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                                <p style="margin-top: 5px; color: #666; font-size: 12px;">Imagen actual</p>
+                            </div>
+                        `;
+                    }
+
+                    document.getElementById('categoryModal').classList.add('active');
+                }
+            } catch (error) {
+                showAlert('Error al cargar la categoría', 'error');
+            }
+        }
+
+        async function deleteCategory(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta categoría?')) {
+                return;
+            }
+
+            try {
+                await api.deleteCategory(id);
+                showAlert('Categoría eliminada exitosamente', 'success');
+                loadCategories();
+            } catch (error) {
+                showAlert(error.message || 'Error al eliminar la categoría', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryImagePreview').innerHTML = '';
+            currentCategoryId = null;
+        }
+
+        // Vista previa de imagen de categoría
+        function previewCategoryImage(input) {
+            const preview = document.getElementById('categoryImagePreview');
+            preview.innerHTML = '';
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'position: relative; display: inline-block;';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                        <button type="button" onclick="clearCategoryImage()" style="position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer;">&times;</button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearCategoryImage() {
+            document.getElementById('categoryImageFile').value = '';
+            document.getElementById('categoryImagePreview').innerHTML = '';
+        }
+
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveCategoryBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            // Verificar si hay archivo de imagen
+            const imageFile = document.getElementById('categoryImageFile').files[0];
+            const hasFile = !!imageFile;
+
+            const categoryData = {
+                name: document.getElementById('categoryName').value.trim(),
+                img: document.getElementById('categoryImage').value.trim() || undefined,
+                isSubCatalogo: document.getElementById('isSubCatalogo').value === 'true',
+                estado: document.getElementById('categoryStatus').value === 'true'
+            };
+
+            try {
+                if (hasFile) {
+                    // Usar FormData si hay archivo
+                    const formData = new FormData();
+                    formData.append('name', categoryData.name);
+                    formData.append('isSubCatalogo', categoryData.isSubCatalogo);
+                    formData.append('estado', categoryData.estado);
+                    formData.append('img', imageFile);
+
+                    if (currentCategoryId) {
+                        await api.updateCategoryWithFile(currentCategoryId, formData);
+                        showAlert('Categoría actualizada exitosamente', 'success');
+                    } else {
+                        await api.createCategoryWithFile(formData);
+                        showAlert('Categoría creada exitosamente con imagen', 'success');
+                    }
+                } else {
+                    // Usar JSON tradicional si no hay archivo
+                    if (currentCategoryId) {
+                        await api.updateCategory(currentCategoryId, categoryData);
+                        showAlert('Categoría actualizada exitosamente', 'success');
+                    } else {
+                        await api.createCategory(categoryData);
+                        showAlert('Categoría creada exitosamente', 'success');
+                    }
+                }
+
+                closeModal();
+                loadCategories();
+            } catch (error) {
+                showAlert(error.message || 'Error al guardar la categoría', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+        // Close modal on outside click
+        document.getElementById('categoryModal').addEventListener('click', (e) => {
+            if (e.target.id === 'categoryModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadCategories();
+    </script>
+</body>
+
+</html>

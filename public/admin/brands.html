@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcas - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Marcas</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Marcas</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ Nueva Marca</button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Logo</th>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Estado</th>
+                                <th>Fecha Creación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brandsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="brandModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nueva Marca</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="brandForm">
+                <div class="form-group">
+                    <label for="brandName">Nombre *</label>
+                    <input type="text" id="brandName" required>
+                </div>
+                <div class="form-group">
+                    <label for="brandDescription">Descripción</label>
+                    <textarea id="brandDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="brandLogoFile">Logo</label>
+                    <input type="file" id="brandLogoFile" accept="image/*" onchange="previewBrandLogo()">
+                    <div id="brandLogoPreview" style="margin-top: 10px; display: none;">
+                        <img id="brandPreviewImg" src="" alt="Vista previa"
+                            style="max-width: 200px; max-height: 200px; object-fit: contain; border-radius: 8px; border: 2px solid #ddd;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="clearBrandLogo()"
+                            style="display: block; margin-top: 10px;">Eliminar logo</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="brandStatus">Estado</label>
+                    <select id="brandStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveBrandBtn" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentBrandId = null;
+
+        async function loadBrands() {
+            showLoading(true);
+            try {
+                const data = await api.getBrands();
+                const brands = data.brands || [];
+                const tbody = document.getElementById('brandsBody');
+                tbody.innerHTML = '';
+
+                brands.forEach(brand => {
+                    const logoUrl = brand.logo || '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${logoUrl ? `<img src="${logoUrl}" alt="${brand.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">` : 'Sin logo'}</td>
+                        <td>${brand.name}</td>
+                        <td>${brand.description || 'N/A'}</td>
+                        <td><span class="badge badge-${brand.estado !== false ? 'success' : 'danger'}">${brand.estado !== false ? 'Activo' : 'Inactivo'}</span></td>
+                        <td>${formatDate(brand.createdAt)}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="editBrand('${brand._id}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteBrand('${brand._id}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (brands.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay marcas registradas</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading brands:', error);
+                showAlert('Error al cargar las marcas', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Funciones del modal
+        function clearBrandLogo() {
+            const fileInput = document.getElementById('brandLogoFile');
+            const preview = document.getElementById('brandLogoPreview');
+            const currentLabel = document.getElementById('currentLogoLabel');
+
+            if (fileInput) fileInput.value = '';
+            if (preview) preview.style.display = 'none';
+            if (currentLabel) currentLabel.remove();
+        }
+
+        function openCreateModal() {
+            currentBrandId = null;
+            document.getElementById('modalTitle').textContent = 'Nueva Marca';
+            document.getElementById('brandForm').reset();
+            clearBrandLogo();
+            document.getElementById('brandModal').classList.add('active');
+        }
+
+        async function editBrand(id) {
+            currentBrandId = id;
+            document.getElementById('modalTitle').textContent = 'Editar Marca';
+
+            try {
+                const data = await api.getBrands();
+                const brand = data.brands.find(b => b._id === id);
+
+                if (brand) {
+                    document.getElementById('brandName').value = brand.name;
+                    document.getElementById('brandDescription').value = brand.description || '';
+                    document.getElementById('brandStatus').value = brand.estado !== false ? 'true' : 'false';
+
+                    // Mostrar logo existente si hay
+                    if (brand.logo) {
+                        const preview = document.getElementById('brandLogoPreview');
+                        const previewImg = document.getElementById('brandPreviewImg');
+                        previewImg.src = brand.logo;
+                        preview.style.display = 'block';
+
+                        // Agregar etiqueta de logo actual
+                        if (!document.getElementById('currentLogoLabel')) {
+                            const label = document.createElement('small');
+                            label.id = 'currentLogoLabel';
+                            label.style.display = 'block';
+                            label.style.marginBottom = '5px';
+                            label.style.color = '#666';
+                            label.textContent = 'Logo actual:';
+                            preview.insertBefore(label, previewImg);
+                        }
+                    }
+
+                    document.getElementById('brandModal').classList.add('active');
+                }
+            } catch (error) {
+                showAlert('Error al cargar la marca', 'error');
+            }
+        }
+
+        async function deleteBrand(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta marca?')) {
+                return;
+            }
+
+            try {
+                await api.deleteBrand(id);
+                showAlert('Marca eliminada exitosamente', 'success');
+                loadBrands();
+            } catch (error) {
+                showAlert(error.message || 'Error al eliminar la marca', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('brandModal').classList.remove('active');
+            document.getElementById('brandForm').reset();
+            clearBrandLogo();
+            currentBrandId = null;
+        }
+
+        document.getElementById('brandForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveBrandBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            const fileInput = document.getElementById('brandLogoFile');
+            const hasFile = fileInput.files && fileInput.files.length > 0;
+
+            try {
+                if (hasFile) {
+                    // Usar FormData si hay archivo
+                    const formData = new FormData();
+                    formData.append('name', document.getElementById('brandName').value);
+                    formData.append('description', document.getElementById('brandDescription').value);
+                    formData.append('status', document.getElementById('brandStatus').value);
+                    formData.append('logo', fileInput.files[0]);
+
+                    if (currentBrandId) {
+                        await api.updateBrandWithFile(currentBrandId, formData);
+                        showAlert('Marca actualizada exitosamente', 'success');
+                    } else {
+                        await api.createBrandWithFile(formData);
+                        showAlert('Marca creada exitosamente', 'success');
+                    }
+                } else {
+                    // Usar JSON si no hay archivo
+                    const brandData = {
+                        name: document.getElementById('brandName').value,
+                        description: document.getElementById('brandDescription').value,
+                        status: document.getElementById('brandStatus').value === 'true'
+                    };
+
+                    if (currentBrandId) {
+                        await api.updateBrand(currentBrandId, brandData);
+                        showAlert('Marca actualizada exitosamente', 'success');
+                    } else {
+                        await api.createBrand(brandData);
+                        showAlert('Marca creada exitosamente', 'success');
+                    }
+                }
+
+                closeModal();
+                loadBrands();
+            } catch (error) {
+                showAlert(error.message || 'Error al guardar la marca', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+
+
+        document.getElementById('brandModal').addEventListener('click', (e) => {
+            if (e.target.id === 'brandModal') {
+                closeModal();
+            }
+        });
+
+        // Funciones de preview de logo
+        function previewBrandLogo() {
+            const fileInput = document.getElementById('brandLogoFile');
+            const preview = document.getElementById('brandLogoPreview');
+            const previewImg = document.getElementById('brandPreviewImg');
+            const currentLabel = document.getElementById('currentLogoLabel');
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImg.src = e.target.result;
+                    preview.style.display = 'block';
+                    if (currentLabel) currentLabel.remove();
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        }
+
+        // Initialize
+        loadBrands();
+    </script>
+</body>
+
+</html>

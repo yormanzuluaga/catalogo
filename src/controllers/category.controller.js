@@ -6,8 +6,8 @@ const categotyCtrl = {}
 const s3Service = new S3Service()
 
 categotyCtrl.getAllCategory = async (req = request, res = response) => {
-    const { limit = 5, from = 0} = req.query;
-    const query = {estado: true}
+    const { limit = 5, from = 0 } = req.query;
+    const query = { estado: true }
 
     const [allCategory, category] = await Promise.all([
         Category.countDocuments(query).lean(),
@@ -25,7 +25,7 @@ categotyCtrl.getAllCategory = async (req = request, res = response) => {
 categotyCtrl.getCategory = async (req = request, res = response) => {
 
     const { id } = req.params;
-    const category = await Category.findById( id ).populate('user', 'firstName').lean()
+    const category = await Category.findById(id).populate('user', 'firstName').lean()
 
     res.json(category);
 
@@ -35,10 +35,18 @@ categotyCtrl.createrCategory = async (req = request, res = response) => {
     try {
         const { name, number, img, ...body } = req.body;
 
-        // Verificar si la categoría ya existe
-        const categoryDB = await Category.findOne({name})
+        // Parsear campos booleanos si vienen como strings (cuando se envía FormData)
+        if (typeof body.isSubCatalogo === 'string') {
+            body.isSubCatalogo = body.isSubCatalogo === 'true';
+        }
+        if (typeof body.estado === 'string') {
+            body.estado = body.estado === 'true';
+        }
 
-        if( categoryDB ) {
+        // Verificar si la categoría ya existe
+        const categoryDB = await Category.findOne({ name })
+
+        if (categoryDB) {
             return res.status(400).json({
                 msg: `La categoría ${categoryDB.name}, ya existe`
             })
@@ -91,6 +99,14 @@ categotyCtrl.updateCategory = async (req = request, res = response) => {
         const { id } = req.params;
         const { estado, user, ...data } = req.body;
 
+        // Parsear campos booleanos si vienen como strings (cuando se envía FormData)
+        if (typeof data.isSubCatalogo === 'string') {
+            data.isSubCatalogo = data.isSubCatalogo === 'true';
+        }
+        if (typeof data.estado === 'string') {
+            data.estado = data.estado === 'true';
+        }
+
         // Obtener la categoría actual para eliminar imagen anterior si es necesario
         const currentCategory = await Category.findById(id);
         if (!currentCategory) {
@@ -111,7 +127,7 @@ categotyCtrl.updateCategory = async (req = request, res = response) => {
                 if (currentCategory.img) {
                     await s3Service.deleteFile(currentCategory.img);
                 }
-                
+
                 // Subir nueva imagen
                 const imageUrl = await s3Service.uploadFileFromExpressUpload(req.files.img, 'categories');
                 data.img = imageUrl;
@@ -245,7 +261,7 @@ categotyCtrl.deletedCategory = async (req = request, res = response) => {
         }
 
         // Marcar la categoría como eliminada
-        const deletedCategory = await Category.findByIdAndUpdate(id, {estado: false}, {new: true});
+        const deletedCategory = await Category.findByIdAndUpdate(id, { estado: false }, { new: true });
 
         res.json({
             msg: 'Categoría eliminada exitosamente',

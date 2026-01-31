@@ -12,6 +12,7 @@ const {
     getWalletBalance,
     getPendingOrders,
     adminGetAllOrders,      // 🔐 ADMIN
+    adminGetOrderDetail,    // 🔐 ADMIN
     adminUpdateOrderStatus  // 🔐 ADMIN
 } = require('../controllers/shipping_order_v2.controller');
 
@@ -28,6 +29,17 @@ router.get('/admin/all-orders', [
     isAdminRole,
     validarCampos
 ], adminGetAllOrders);
+
+/**
+ * 🔐 ADMIN: OBTENER DETALLE DE CUALQUIER ORDEN
+ * GET /api/shipping-orders-v2/admin/:id
+ */
+router.get('/admin/:id', [
+    validarJWT,
+    isAdminRole,
+    check('id', 'No es un ID válido').isMongoId(),
+    validarCampos
+], adminGetOrderDetail);
 
 /**
  * 🔐 ADMIN: ACTUALIZAR ESTADO DE CUALQUIER ORDEN

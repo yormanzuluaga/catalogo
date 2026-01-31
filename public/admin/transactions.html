@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transacciones - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Transacciones</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Historial de Transacciones</h2>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Transacción</th>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Método de Pago</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="transactionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalles de la Transacción</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="transactionDetails">
+                <!-- Transaction details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        async function loadTransactions() {
+            showLoading(true);
+            try {
+                const data = await api.getTransactions();
+                const transactions = data.transactions || [];
+                const tbody = document.getElementById('transactionsBody');
+                tbody.innerHTML = '';
+
+                transactions.forEach(transaction => {
+                    const tr = document.createElement('tr');
+                    const userName = transaction.user?.name || 'N/A';
+                    const userEmail = transaction.user?.email || 'N/A';
+                    const amount = formatCurrency(transaction.amount || 0);
+                    const status = transaction.status || 'N/A';
+                    const paymentMethod = transaction.payment_method?.type || transaction.paymentMethod || 'N/A';
+
+                    tr.innerHTML = `
+                        <td>${transaction._id?.substring(0, 10) || 'N/A'}</td>
+                        <td>${userName}</td>
+                        <td>${userEmail}</td>
+                        <td>${amount}</td>
+                        <td><span class="badge badge-${getStatusColor(status)}">${status}</span></td>
+                        <td>${paymentMethod}</td>
+                        <td>${formatDate(transaction.createdAt)}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary btn-sm" onclick="viewTransaction('${transaction._id}')">Ver Detalles</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                if (transactions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay transacciones registradas</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                showAlert('Error al cargar las transacciones', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function viewTransaction(id) {
+            try {
+                const transaction = await api.getTransaction(id);
+                const detailsDiv = document.getElementById('transactionDetails');
+
+                detailsDiv.innerHTML = `
+                    <div style="padding: 20px;">
+                        <p><strong>ID:</strong> ${transaction._id}</p>
+                        <p><strong>Usuario:</strong> ${transaction.user?.name || 'N/A'}</p>
+                        <p><strong>Email:</strong> ${transaction.user?.email || 'N/A'}</p>
+                        <p><strong>Monto:</strong> ${formatCurrency(transaction.amount || 0)}</p>
+                        <p><strong>Estado:</strong> <span class="badge badge-${getStatusColor(transaction.status)}">${transaction.status}</span></p>
+                        <p><strong>Método de Pago:</strong> ${transaction.payment_method?.type || transaction.paymentMethod || 'N/A'}</p>
+                        <p><strong>Referencia:</strong> ${transaction.reference || 'N/A'}</p>
+                        <p><strong>Fecha:</strong> ${formatDate(transaction.createdAt)}</p>
+                        ${transaction.description ? `<p><strong>Descripción:</strong> ${transaction.description}</p>` : ''}
+                    </div>
+                `;
+
+                document.getElementById('transactionModal').classList.add('active');
+            } catch (error) {
+                showAlert('Error al cargar los detalles de la transacción', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('transactionModal').classList.remove('active');
+        }
+
+        function getStatusColor(status) {
+            const statusColors = {
+                'APPROVED': 'success',
+                'PENDING': 'warning',
+                'DECLINED': 'danger',
+                'ERROR': 'danger',
+                'completed': 'success',
+                'pending': 'warning',
+                'cancelled': 'danger'
+            };
+            return statusColors[status] || 'info';
+        }
+
+        document.getElementById('transactionModal').addEventListener('click', (e) => {
+            if (e.target.id === 'transactionModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadTransactions();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtros - Panel de Administración</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="index.html">📊 Dashboard</a></li>
+                <li><a href="categories.html">📁 Categorías</a></li>
+                <li><a href="subcategories.html">📂 Subcategorías</a></li>
+                <li><a href="brands.html">🏷️ Marcas</a></li>
+                <li><a href="filters.html" class="active">🏁 Filtros</a></li>
+                <li><a href="products.html">📦 Productos</a></li>
+                <li><a href="banners.html">🖼️ Banners</a></li>
+                <li><a href="transactions.html">💳 Transacciones</a></li>
+                <li><a href="orders.html">🛒 Órdenes</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h1>Gestión de Filtros por Categoría</h1>
+                <div class="user-info">
+                    <span id="userName">Admin</span>
+                    <button type="button" class="btn btn-danger btn-sm logout-btn" onclick="handleLogout()">Cerrar
+                        Sesión</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Filtros</h2>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="categoryFilter" onchange="filterByCategory()"
+                            style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">Todas las categorías</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="openCreateModal()">+ Nuevo Filtro</button>
+                    </div>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Color</th>
+                                <th>Orden</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="filtersBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="filterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Filtro</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="filterForm">
+                <div class="form-group">
+                    <label for="filterName">Nombre del Filtro *</label>
+                    <input type="text" id="filterName" required placeholder="Ej: Labiales, Bases, Sombras">
+                    <small style="display: block; margin-top: 5px; color: #666;">Nombre descriptivo del filtro</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterCategory">Categoría *</label>
+                    <select id="filterCategory" required>
+                        <option value="">Selecciona una categoría</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Este filtro solo estará disponible para
+                        productos de esta categoría</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterDescription">Descripción</label>
+                    <textarea id="filterDescription" rows="2" placeholder="Descripción opcional del filtro"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterColor">Color (Hex)</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="filterColorPicker" value="#000000" onchange="updateColorInput()">
+                        <input type="text" id="filterColor" value="#000000" placeholder="#000000"
+                            pattern="^#[0-9A-Fa-f]{6}$" style="flex: 1;">
+                    </div>
+                    <small style="display: block; margin-top: 5px; color: #666;">Color para identificar visualmente este
+                        filtro</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterIcon">Icono (opcional)</label>
+                    <input type="text" id="filterIcon" placeholder="Ej: 💄, 👄, ✨">
+                    <small style="display: block; margin-top: 5px; color: #666;">Emoji o nombre de icono</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterOrder">Orden</label>
+                    <input type="number" id="filterOrder" min="0" value="0" placeholder="0">
+                    <small style="display: block; margin-top: 5px; color: #666;">Orden de aparición (menor número =
+                        mayor prioridad)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterStatus">Estado</label>
+                    <select id="filterStatus">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="saveFilterBtn" class="btn btn-success">Guardar Filtro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+        initSidebar();
+
+        const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        document.getElementById('userName').textContent = user.name || user.email || 'Admin';
+
+        let currentFilterId = null;
+        let categories = [];
+        let allFilters = [];
+
+        // Sincronizar color picker con input de texto
+        function updateColorInput() {
+            const color = document.getElementById('filterColorPicker').value;
+            document.getElementById('filterColor').value = color;
+        }
+
+        document.getElementById('filterColor').addEventListener('input', function (e) {
+            const value = e.target.value;
+            if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                document.getElementById('filterColorPicker').value = value;
+            }
+        });
+
+        async function loadCategories() {
+            try {
+                const data = await api.getCategories();
+                categories = data.category || data.categories || [];
+
+                // Cargar en el formulario
+                const select = document.getElementById('filterCategory');
+                select.innerHTML = '<option value="">Selecciona una categoría</option>';
+                categories.filter(c => c.estado !== false).forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat._id;
+                    option.textContent = cat.name;
+                    select.appendChild(option);
+                });
+
+                // Cargar en el filtro de tabla
+                const filterSelect = document.getElementById('categoryFilter');
+                filterSelect.innerHTML = '<option value="">Todas las categorías</option>';
+                categories.filter(c => c.estado !== false).forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat._id;
+                    option.textContent = cat.name;
+                    filterSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                showAlert('Error al cargar categorías', 'error');
+            }
+        }
+
+        async function loadFilters() {
+            showLoading(true);
+            try {
+                const data = await api.getFilters();
+                allFilters = data.filters || [];
+                displayFilters(allFilters);
+            } catch (error) {
+                console.error('Error loading filters:', error);
+                showAlert('Error al cargar los filtros', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayFilters(filters) {
+            const tbody = document.getElementById('filtersBody');
+            tbody.innerHTML = '';
+
+            filters.forEach(filter => {
+                const categoryName = filter.category?.name || 'N/A';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        ${filter.icon ? filter.icon + ' ' : ''}
+                        <strong>${filter.name}</strong>
+                        ${filter.description ? '<br><small style="color: #666;">' + filter.description + '</small>' : ''}
+                    </td>
+                    <td><span class="badge badge-info">${categoryName}</span></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 24px; height: 24px; border-radius: 4px; background: ${filter.color}; border: 1px solid #ddd;"></div>
+                            <small>${filter.color}</small>
+                        </div>
+                    </td>
+                    <td>${filter.order || 0}</td>
+                    <td><span class="badge badge-${filter.isActive !== false ? 'success' : 'danger'}">${filter.isActive !== false ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="actions">
+                        <button class="btn btn-primary btn-sm" onclick="editFilter('${filter._id}')">Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteFilter('${filter._id}')">Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (filters.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay filtros registrados</td></tr>';
+            }
+        }
+
+        function filterByCategory() {
+            const categoryId = document.getElementById('categoryFilter').value;
+
+            if (!categoryId) {
+                displayFilters(allFilters);
+            } else {
+                const filtered = allFilters.filter(f => f.category?._id === categoryId);
+                displayFilters(filtered);
+            }
+        }
+
+        function openCreateModal() {
+            currentFilterId = null;
+            document.getElementById('modalTitle').textContent = 'Nuevo Filtro';
+            document.getElementById('filterForm').reset();
+            document.getElementById('filterColor').value = '#000000';
+            document.getElementById('filterColorPicker').value = '#000000';
+            document.getElementById('filterOrder').value = '0';
+            document.getElementById('filterModal').classList.add('active');
+        }
+
+        async function editFilter(id) {
+            try {
+                const data = await api.getFilter(id);
+                const filter = data.filter;
+
+                currentFilterId = id;
+                document.getElementById('modalTitle').textContent = 'Editar Filtro';
+                document.getElementById('filterName').value = filter.name;
+                document.getElementById('filterCategory').value = filter.category?._id || '';
+                document.getElementById('filterDescription').value = filter.description || '';
+                document.getElementById('filterColor').value = filter.color || '#000000';
+                document.getElementById('filterColorPicker').value = filter.color || '#000000';
+                document.getElementById('filterIcon').value = filter.icon || '';
+                document.getElementById('filterOrder').value = filter.order || 0;
+                document.getElementById('filterStatus').value = filter.isActive !== false ? 'true' : 'false';
+                document.getElementById('filterModal').classList.add('active');
+            } catch (error) {
+                console.error('Error loading filter:', error);
+                showAlert('Error al cargar el filtro', 'error');
+            }
+        }
+
+        async function deleteFilter(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este filtro?')) {
+                return;
+            }
+
+            try {
+                await api.deleteFilter(id);
+                showAlert('Filtro eliminado exitosamente', 'success');
+                loadFilters();
+            } catch (error) {
+                console.error('Error deleting filter:', error);
+                showAlert(error.message || 'Error al eliminar el filtro', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('filterModal').classList.remove('active');
+            document.getElementById('filterForm').reset();
+            currentFilterId = null;
+        }
+
+        document.getElementById('filterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveFilterBtn');
+            const originalText = saveBtn.textContent;
+
+            // Deshabilitar botón y mostrar estado de carga
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+            const filterData = {
+                name: document.getElementById('filterName').value.trim(),
+                category: document.getElementById('filterCategory').value,
+                description: document.getElementById('filterDescription').value.trim() || undefined,
+                color: document.getElementById('filterColor').value,
+                icon: document.getElementById('filterIcon').value.trim() || undefined,
+                order: parseInt(document.getElementById('filterOrder').value) || 0,
+                isActive: document.getElementById('filterStatus').value === 'true'
+            };
+
+            try {
+                if (currentFilterId) {
+                    await api.updateFilter(currentFilterId, filterData);
+                    showAlert('Filtro actualizado exitosamente', 'success');
+                } else {
+                    await api.createFilter(filterData);
+                    showAlert('Filtro creado exitosamente', 'success');
+                }
+
+                closeModal();
+                loadFilters();
+            } catch (error) {
+                console.error('Error saving filter:', error);
+                showAlert(error.message || 'Error al guardar el filtro', 'error');
+            } finally {
+                // Restaurar botón
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        });
+
+        document.getElementById('filterModal').addEventListener('click', (e) => {
+            if (e.target.id === 'filterModal') {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        loadCategories();
+        loadFilters();
+    </script>
+</body>
+
+</html>
