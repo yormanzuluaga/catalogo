@@ -62,6 +62,7 @@
                             <tr>
                                 <th>Nombre</th>
                                 <th>Categoría</th>
+                                <th>Subcategoría</th>
                                 <th>Color</th>
                                 <th>Orden</th>
                                 <th>Estado</th>
@@ -92,11 +93,20 @@
 
                 <div class="form-group">
                     <label for="filterCategory">Categoría *</label>
-                    <select id="filterCategory" required>
+                    <select id="filterCategory" required onchange="loadSubcategoriesForFilter()">
                         <option value="">Selecciona una categoría</option>
                     </select>
-                    <small style="display: block; margin-top: 5px; color: #666;">Este filtro solo estará disponible para
+                    <small style="display: block; margin-top: 5px; color: #666;">Este filtro estará disponible para
                         productos de esta categoría</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="filterSubCategory">Subcategoría (opcional)</label>
+                    <select id="filterSubCategory" disabled>
+                        <option value="">Primero selecciona una categoría</option>
+                    </select>
+                    <small style="display: block; margin-top: 5px; color: #666;">Si seleccionas una subcategoría, el
+                        filtro solo estará disponible para esa subcategoría específica</small>
                 </div>
 
                 <div class="form-group">
@@ -200,6 +210,47 @@
             }
         }
 
+        async function loadSubcategoriesForFilter() {
+            const categoryId = document.getElementById('filterCategory').value;
+            const subCategorySelect = document.getElementById('filterSubCategory');
+
+            subCategorySelect.innerHTML = '<option value="">Todas las subcategorías</option>';
+
+            if (!categoryId) {
+                subCategorySelect.disabled = true;
+                subCategorySelect.innerHTML = '<option value="">Primero selecciona una categoría</option>';
+                return;
+            }
+
+            try {
+                const data = await api.getSubcategories();
+                const allSubcategories = data.subCategory || data.subcategories || [];
+
+                // Filtrar por categoría - verificar múltiples formatos
+                const subcategories = allSubcategories.filter(sub => {
+                    const subCategoryId = typeof sub.category === 'string' ? sub.category : sub.category?._id;
+                    return subCategoryId === categoryId;
+                });
+
+                if (subcategories.length === 0) {
+                    subCategorySelect.innerHTML = '<option value="">No hay subcategorías para esta categoría</option>';
+                } else {
+                    subCategorySelect.innerHTML = '<option value="">Todas las subcategorías</option>';
+                    subcategories.forEach(sub => {
+                        const option = document.createElement('option');
+                        option.value = sub._id;
+                        option.textContent = sub.name;
+                        subCategorySelect.appendChild(option);
+                    });
+                }
+
+                subCategorySelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading subcategories:', error);
+                showAlert('Error al cargar subcategorías', 'error');
+            }
+        }
+
         async function loadFilters() {
             showLoading(true);
             try {
@@ -220,6 +271,7 @@
 
             filters.forEach(filter => {
                 const categoryName = filter.category?.name || 'N/A';
+                const subCategoryName = filter.subCategory?.name || '-';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>
@@ -228,6 +280,7 @@
                         ${filter.description ? '<br><small style="color: #666;">' + filter.description + '</small>' : ''}
                     </td>
                     <td><span class="badge badge-info">${categoryName}</span></td>
+                    <td><span class="badge badge-secondary">${subCategoryName}</span></td>
                     <td>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div style="width: 24px; height: 24px; border-radius: 4px; background: ${filter.color}; border: 1px solid #ddd;"></div>
@@ -267,6 +320,8 @@
             document.getElementById('filterColor').value = '#000000';
             document.getElementById('filterColorPicker').value = '#000000';
             document.getElementById('filterOrder').value = '0';
+            document.getElementById('filterSubCategory').innerHTML = '<option value="">Primero selecciona una categoría</option>';
+            document.getElementById('filterSubCategory').disabled = true;
             document.getElementById('filterModal').classList.add('active');
         }
 
@@ -279,6 +334,11 @@
                 document.getElementById('modalTitle').textContent = 'Editar Filtro';
                 document.getElementById('filterName').value = filter.name;
                 document.getElementById('filterCategory').value = filter.category?._id || '';
+
+                // Cargar subcategorías para la categoría seleccionada
+                await loadSubcategoriesForFilter();
+
+                document.getElementById('filterSubCategory').value = filter.subCategory?._id || '';
                 document.getElementById('filterDescription').value = filter.description || '';
                 document.getElementById('filterColor').value = filter.color || '#000000';
                 document.getElementById('filterColorPicker').value = filter.color || '#000000';
@@ -332,6 +392,12 @@
                 order: parseInt(document.getElementById('filterOrder').value) || 0,
                 isActive: document.getElementById('filterStatus').value === 'true'
             };
+
+            // Agregar subcategoría solo si está seleccionada
+            const subCategoryValue = document.getElementById('filterSubCategory').value;
+            if (subCategoryValue) {
+                filterData.subCategory = subCategoryValue;
+            }
 
             try {
                 if (currentFilterId) {

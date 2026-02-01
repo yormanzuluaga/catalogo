@@ -24,6 +24,7 @@ filterCtrl.getAllFilters = async (req = request, res = response) => {
             Filter.countDocuments(query).lean(),
             Filter.find(query)
                 .populate('category', 'name')
+                .populate('subCategory', 'name')
                 .populate('user', 'firstName')
                 .skip(Number(from))
                 .limit(Number(limit))
@@ -87,6 +88,7 @@ filterCtrl.getFilter = async (req = request, res = response) => {
 
         const filter = await Filter.findById(id)
             .populate('category', 'name')
+            .populate('subCategory', 'name')
             .populate('user', 'firstName')
             .lean();
 
@@ -137,6 +139,7 @@ filterCtrl.createFilter = async (req = request, res = response) => {
 
         // Populate para la respuesta
         await filter.populate('category', 'name');
+        await filter.populate('subCategory', 'name');
         await filter.populate('user', 'firstName');
 
         res.status(201).json({
@@ -178,6 +181,7 @@ filterCtrl.updateFilter = async (req = request, res = response) => {
 
         const filter = await Filter.findByIdAndUpdate(id, data, { new: true })
             .populate('category', 'name')
+            .populate('subCategory', 'name')
             .populate('user', 'firstName');
 
         if (!filter) {

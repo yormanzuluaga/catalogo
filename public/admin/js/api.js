@@ -443,6 +443,53 @@ class ApiService {
         }
         return data;
     }
+
+    // User methods
+    async getUsers() {
+        return this.request('/user');
+    }
+
+    async getUser(id) {
+        return this.request(`/user/${id}`);
+    }
+
+    async createUser(userData) {
+        return this.request('/user', {
+            method: 'POST',
+            body: JSON.stringify(userData)
+        });
+    }
+
+    async updateUser(id, userData) {
+        return this.request(`/user/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData)
+        });
+    }
+
+    // Actualizar usuario con archivo de avatar
+    async updateUserWithFile(id, formData) {
+        const token = this.getToken();
+        const response = await fetch(`${API_URL}/user/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.msg || data.msj || 'Error al actualizar usuario');
+        }
+        return data;
+    }
+
+    async deleteUser(id) {
+        return this.request(`/user/${id}`, {
+            method: 'DELETE'
+        });
+    }
 }
 
 // Utility Functions

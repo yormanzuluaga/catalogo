@@ -17,6 +17,11 @@ const FilterSchema = Schema({
         ref: 'Category',
         required: [true, 'La categoría es obligatoria']
     },
+    subCategory: {
+        type: Schema.Types.ObjectId,
+        ref: 'SubCategory',
+        default: null
+    },
     description: {
         type: String,
         trim: true
